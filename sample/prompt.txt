@@ -1,0 +1,10 @@
+Calculate the following operation from parameters a: {a} and b: {b}
+Return the operations in the folowing json format:
+
+{{
+    "sum": <addition result>, // a+b
+    "sub": <subtrction result>, // a-b
+    "mul": <multiplication result>, // a*b
+    "div": <division result>, // a/b
+    "exp": <exponential result>, // a^b
+}}
