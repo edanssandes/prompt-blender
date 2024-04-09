@@ -23,7 +23,7 @@ PromptBlender is a tool designed to automate the generation, execution, and anal
 Clone the PromptBlender repository to your local machine:
 
 ```bash
-pip install pip@git+https://github.com/edanssandes/prompt-blender
+pip install git+https://github.com/edanssandes/prompt-blender
 ```
 
 ### Usage
