@@ -29,9 +29,17 @@ pip install git+https://github.com/edanssandes/prompt-blender
 ### Usage
 
 ```
-usage: python -m prompt-blender [-h] [--job JOB] [--prompt-file PROMPT_FILE] [--args ARGS [ARGS ...]] [--output-dir OUTPUT_DIR] 
-                 [--analysis-dir ANALYSIS_DIR] [--exec] [--recreate]
-                 [--gpt-model GPT_MODEL] [--gpt-args GPT_ARGS [GPT_ARGS ...]] [--gpt-json] [--gpt-manual-ui] 
+usage: python -m prompt-blender [-h] [--job JOB] 
+                 [--prompt-file PROMPT_FILE] 
+                 [--args ARGS [ARGS ...]] 
+                 [--output-dir OUTPUT_DIR] 
+                 [--analysis-dir ANALYSIS_DIR] 
+                 [--exec] 
+                 [--recreate]
+                 [--gpt-model GPT_MODEL] 
+                 [--gpt-manual-ui] 
+                 [--gpt-args GPT_ARGS [GPT_ARGS ...]] 
+                 [--gpt-json]
                  [--analyse ANALYSE [ANALYSE ...]]
 
 optional arguments:
@@ -54,11 +62,13 @@ optional arguments:
   --gpt-json            Return the response in json format
   --gpt-manual-ui       Use manual UI for chatgpt. Same as --gpt-model=gpt-manual-ui
   --analyse ANALYSE [ANALYSE ...]
-                        Python file used to analyse the output files. The file must contains a function called analyse(refs_values, content)
+                        Python file used to analyse the output files. The file must 
+                        contains a function called analyse(refs_values, content)
 ```
 
 ### Contributing
-We welcome contributions to PromptBlender! If you have suggestions for improvements or new features, please open an issue or submit a pull request.
+We welcome contributions to PromptBlender! If you have suggestions for improvements or 
+new features, please open an issue or submit a pull request.
 
 ### License
 PromptBlender is released under the MIT License. See the LICENSE file for more details.
