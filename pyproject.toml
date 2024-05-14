@@ -27,7 +27,6 @@ classifiers = [
   "Programming Language :: Python"
 ]
 
-
 [project.urls]
 Repository = "https://github.com/edanssandes/prompt-blender"
 

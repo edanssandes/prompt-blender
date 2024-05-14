@@ -1,7 +1,16 @@
 import json
 
+analyse_info = {
+    'name': 'GPT Cost',
+    'description': 'Analyse the cost of GPT responses',
+    'llm_modules': ['chatgpt', 'chatgpt_manual'],
+}
+
 def analyse(response):
-    usage = response["usage"]
+    print(response)
+    usage = response.get("usage", None)
+    if usage is None:
+        return None
 
     tokens_in = usage['prompt_tokens']
     tokens_out = usage['completion_tokens']

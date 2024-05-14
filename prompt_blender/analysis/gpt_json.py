@@ -1,8 +1,15 @@
 import json
 import pandas as pd
 
+analyse_info = {
+    'name': 'GPT JSON',
+    'description': 'Analyse the JSON responses from GPT models',
+    'llm_modules': ['chatgpt', 'chatgpt_manual'],
+}
+
 def analyse(response):
     analysis = []
+    print(response)
 
     for choice in response['choices']:
         content = choice['message']['content']
