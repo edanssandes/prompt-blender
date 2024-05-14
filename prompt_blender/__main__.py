@@ -1,5 +1,6 @@
 import argparse
 import os
+import sys
 
 from prompt_blender.analysis.analyse_results import analyse_results
 from prompt_blender.arguments import Config
@@ -36,7 +37,7 @@ parser.add_argument('--gui', action='store_true', help='Show GUI for the analysi
 
 args = parser.parse_args()
 
-if args.gui:
+if args.gui or len(sys.argv) == 1:
     from prompt_blender.gui import main_wx
     main_wx.run()
     exit()
