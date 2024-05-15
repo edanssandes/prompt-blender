@@ -516,6 +516,11 @@ class MainFrame(wx.Frame):
         name = self.data.file_path
         if name is None:
             name = "Untitled Project"
+        else:
+            # Relative path to the project file if it is a subdirectory of the current directory
+            if name.startswith(os.getcwd()):
+                name = os.path.relpath(name)
+
         modified_flag = "*" if self.data.is_modified else ""
         self.SetTitle(f"{MainFrame.TITLE} - {name}{modified_flag}")
 
