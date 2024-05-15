@@ -57,7 +57,7 @@ def exec_close():
     client = None
 
 
-def get_cost(response):
+def get_cost(response):  # FIXME duplicated code
     usage = response["usage"]
 
     tokens_in = usage['prompt_tokens']
@@ -68,6 +68,9 @@ def get_cost(response):
         cost_out = 1.50
     elif response['model'] == 'gpt-4-0125-preview':
         cost_in = 10.00
+        cost_out = 30.00
+    elif response['model'] == 'gpt-4o-2024-05-13':
+        cost_in = 5.00
         cost_out = 15.00
     elif response['model'] == 'gpt-manual-ui':
         cost_in = 0.00
@@ -105,7 +108,7 @@ class ConfigPanel(wx.Panel):
         # Model name combo box
         self.model_label = wx.StaticText(self, label="Model Name:")
         vbox.Add(self.model_label, flag=wx.LEFT | wx.TOP, border=5)
-        model_choices = ["gpt-4-turbo", "gpt-3.5-turbo"]  # Add more models as needed
+        model_choices = ["gpt-4o", "gpt-4-turbo", "gpt-3.5-turbo"]  # Add more models as needed
         self.model_combo = wx.ComboBox(self, choices=model_choices, style=wx.CB_READONLY)
         self.model_combo.SetValue("gpt-4-turbo")  # Set the default value
         vbox.Add(self.model_combo, flag=wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, border=5)

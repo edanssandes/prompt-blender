@@ -15,11 +15,15 @@ def analyse(response):
     tokens_in = usage['prompt_tokens']
     tokens_out = usage['completion_tokens']
 
+    # FIXME duplicated code
     if response['model'] == 'gpt-3.5-turbo-0125':
         cost_in = 0.50
         cost_out = 1.50
     elif response['model'] == 'gpt-4-0125-preview':
         cost_in = 10.00
+        cost_out = 30.00
+    elif response['model'] == 'gpt-4o-2024-05-13':
+        cost_in = 5.00
         cost_out = 15.00
     elif response['model'] == 'gpt-manual-ui':
         cost_in = 0.00
