@@ -26,7 +26,21 @@ Clone the PromptBlender repository to your local machine:
 pip install git+https://github.com/edanssandes/prompt-blender
 ```
 
-### Usage
+### Graphical User Interface (GUI)
+
+The PromptBlender project includes a user-friendly Graphical User Interface (GUI) that allows you to interact with the application easily. To open the GUI, you can run the following command in your terminal, without any parameter:
+
+```
+python -m prompt-blender [-h] [--job JOB] 
+```
+
+The GUI allows you to input prompts and parameters, blend the parameters in many prompt combinations, execute them using the LLM APIs, and export the responses to a zip file.
+
+
+![Main Window](<docs/imgs/screenshot_main.png>)
+
+
+### Command Line Interface (CLI)
 
 ```
 usage: python -m prompt-blender [-h] [--job JOB] 
