@@ -232,7 +232,7 @@ class Model:
 
         import pandas as pd
         if extension in ('xlsx', 'xls'):
-            df = pd.read_excel(file_path, encoding=encoding)
+            df = pd.read_excel(file_path)
             param = df.to_dict(orient='records')
         elif extension in ('csv',):
             df = pd.read_csv(file_path, encoding=encoding)
@@ -240,7 +240,7 @@ class Model:
         elif extension in ('txt',):
             with open(file_path, 'r', encoding=encoding) as file:
                 lines = file.readlines()
-                param = [{variable: line} for line in lines]
+                param = [{variable: line.strip()} for line in lines]
         elif extension in ('jsonl',):
             with open(file_path, 'r', encoding=encoding) as file:
                 lines = file.readlines()

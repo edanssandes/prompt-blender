@@ -138,7 +138,7 @@ class PreferencesDialog(wx.Dialog):
         hbox.Add(wx.StaticText(horizontal_panel, label="Cache Directory:"), flag=wx.ALL | wx.CENTER, border=5)
         hbox.Add(self.cache_ctrl, proportion=1, flag=wx.ALL | wx.CENTER | wx.EXPAND, border=5)
         hbox.Add(self.cache_button, flag=wx.ALL | wx.CENTER, border=5)
-        vbox.Add(horizontal_panel, proportion=1, flag=wx.ALL | wx.EXPAND, border=5)
+        vbox.Add(horizontal_panel, proportion=0, flag=wx.ALL | wx.EXPAND, border=5)
 
         # Add horizontal separator
         line = wx.StaticLine(self.panel)
@@ -147,18 +147,18 @@ class PreferencesDialog(wx.Dialog):
         # Maximum number of allowed combinations (numeric SpinCtrl, range=0-10000)
         vbox.Add(wx.StaticText(self.panel, label="Maximum number of allowed combinations:"), proportion=0, flag=wx.LEFT | wx.TOP, border=5)
         self.max_combinations = wx.SpinCtrl(self.panel, min=0, max=10000)
-        vbox.Add(self.max_combinations, proportion=1, flag=wx.LEFT | wx.TOP, border=5)
+        vbox.Add(self.max_combinations, proportion=0, flag=wx.LEFT | wx.TOP, border=5)
 
         # Maximum cost per execution (in dollars) - SpinCtrl with 2 decimal places, default 1.50, range=0.0-20.0
         vbox.Add(wx.StaticText(self.panel, label="Maximum cost per execution (in dollars):"), proportion=0, flag=wx.LEFT | wx.TOP, border=5)
         self.max_cost = wx.SpinCtrlDouble(self.panel, min=0.0, max=20.0, inc=0.01)
-        vbox.Add(self.max_cost, proportion=1, flag=wx.LEFT | wx.TOP, border=5)
+        vbox.Add(self.max_cost, proportion=0, flag=wx.LEFT | wx.TOP, border=5)
 
 
         # Timeout per request (in seconds)
         vbox.Add(wx.StaticText(self.panel, label="Timeout per request (in seconds):"), proportion=0, flag=wx.LEFT | wx.TOP, border=5)
         self.timeout = wx.SpinCtrl(self.panel, min=0, max=300)
-        vbox.Add(self.timeout, proportion=1, flag=wx.LEFT | wx.TOP, border=5)
+        vbox.Add(self.timeout, proportion=0, flag=wx.LEFT | wx.TOP, border=5)
 
 
         # Add horizontal separator
@@ -174,7 +174,7 @@ class PreferencesDialog(wx.Dialog):
         self.cancel_button = wx.Button(horizontal_panel, label="Cancel")
         hbox.Add(self.cancel_button, flag=wx.ALL | wx.CENTER, border=5)
         hbox.Add(self.apply_button, flag=wx.ALL | wx.CENTER, border=5)
-        vbox.Add(horizontal_panel, proportion=1, flag=wx.ALL | wx.EXPAND, border=5)
+        vbox.Add(horizontal_panel, proportion=0, flag=wx.ALL | wx.EXPAND, border=5)
 
         self.apply_button.Bind(wx.EVT_BUTTON, self.on_apply)
         self.cancel_button.Bind(wx.EVT_BUTTON, self.on_cancel)
@@ -223,8 +223,9 @@ class PreferencesDialog(wx.Dialog):
         self.Bind(wx.EVT_CLOSE, on_close)
 
         # Layout
-        self.panel.Fit()
-        self.Fit()
+        vbox.Fit(self)
+        #self.panel.Fit()
+        #self.Fit()
         self.Layout()
 
     def refresh_fields(self, preferences):

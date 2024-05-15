@@ -362,7 +362,7 @@ class MainFrame(wx.Frame):
             # get the previous tree selection
             item_old = event.GetOldItem()
             item_new = event.GetItem()
-            param_id_old = self.tree.GetItemData(item_old)
+            param_id_old = self.tree.GetItemData(item_old) if item_old else None
             param_id_new = self.tree.GetItemData(item_new)
 
             if param_id_old == param_id_new:
@@ -538,6 +538,10 @@ class MainFrame(wx.Frame):
         
         for i, file in enumerate(self.preferences.recent_files):
             self.recent_menu.Append(2000 + i, file)
+
+        if len(self.preferences.recent_files) == 0:
+            self.recent_menu.Append(2000, "No recent files")
+            self.recent_menu.Enable(2000, False)
 
         def on_recent_file(event):
             file = self.preferences.recent_files[event.GetId() - 2000]
