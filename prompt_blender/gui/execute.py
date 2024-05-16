@@ -161,13 +161,13 @@ class ExecuteDialog(wx.Dialog):
                 self.module_args[self.selected_module] = children[0].args
 
     def get_selected_module(self):
-        return self.available_models[self.combo.GetStringSelection()]
+        return self.available_models[self.selected_module]
     
     def get_module_args(self):
-        return self.module_args[self.combo.GetStringSelection()]
+        return self.module_args[self.selected_module]
     
     def set_module_args(self, args):
-        self.module_args[self.combo.GetStringSelection()] = args
+        self.module_args[self.selected_module] = args
 
     def get_cache_mode(self):
         return self.cache_mode.GetSelection()
