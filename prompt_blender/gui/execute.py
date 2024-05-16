@@ -44,7 +44,9 @@ class ExecuteDialog(wx.Dialog):
      
 
         # Combo Box with modules. Closed list. Cannot focus text box.
-        self.combo = wx.Choice(self.panel, choices=list(self.available_models.keys()))
+        self.combo = wx.Choice(self.panel, choices=[llm_module.module_info['name'] for llm_module in self.available_models.values()])
+        # Set different values
+
         grid.Add(wx.StaticText(self.panel, label="Module:"), flag=wx.ALL | wx.ALIGN_CENTER_VERTICAL, border=5)
         grid.Add(self.combo, proportion=1, flag=wx.ALL | wx.EXPAND, border=1)
         self.combo.SetMinSize((300, -1))
@@ -65,7 +67,10 @@ class ExecuteDialog(wx.Dialog):
         def on_combo(event):
 
             self.store_args()
-            self.selected_module = self.combo.GetStringSelection()
+            # Get nth element from the list of available models
+            idx_selected_module = self.combo.GetSelection()
+            self.selected_module = list(self.available_models.keys())[idx_selected_module]
+            
             self.populate_parameters_panel()
 
             print("Selected: ", self.selected_module)

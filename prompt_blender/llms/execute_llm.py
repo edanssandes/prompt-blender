@@ -27,6 +27,10 @@ def load_modules(paths):
 
         if not hasattr(module, 'exec'):
             continue
+
+        if not hasattr(module, 'module_info'):
+            module.module_info = {'name': module_name, 'description': 'No description available'}
+
         modules[module_name] = module
 
     return modules
