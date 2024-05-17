@@ -85,23 +85,26 @@ class MainFrame(wx.Frame):
         self.populate_data()
 
     def load_images(self):
-        self.image_list = wx.ImageList(16, 16)
+        self.image_list = wx.ImageList(24, 24)
+        size = (24, 24)
+
+        client = wx.ART_BUTTON
 
         # images from art provider (Folder, File, Spreedsheet, json, xls_format)
-        self.image_list.Add(wx.ArtProvider.GetBitmap(wx.ART_REPORT_VIEW, wx.ART_OTHER, (16, 16)))
-        self.image_list.Add(wx.ArtProvider.GetBitmap(wx.ART_FOLDER, wx.ART_OTHER))
-        self.image_list.Add(wx.ArtProvider.GetBitmap(wx.ART_NORMAL_FILE, wx.ART_OTHER))
-        self.image_list.Add(wx.ArtProvider.GetBitmap(wx.ART_LIST_VIEW, wx.ART_OTHER))
+        self.image_list.Add(wx.ArtProvider.GetBitmap(wx.ART_REPORT_VIEW, client, size))
+        self.image_list.Add(wx.ArtProvider.GetBitmap(wx.ART_FOLDER, client, size))
+        self.image_list.Add(wx.ArtProvider.GetBitmap(wx.ART_NORMAL_FILE, client, size))
+        self.image_list.Add(wx.ArtProvider.GetBitmap(wx.ART_LIST_VIEW, client, size))
 
         # Move up and down
-        self.image_list.Add(wx.ArtProvider.GetBitmap(wx.ART_GO_UP, wx.ART_OTHER))
-        self.image_list.Add(wx.ArtProvider.GetBitmap(wx.ART_GO_DOWN, wx.ART_OTHER))
+        self.image_list.Add(wx.ArtProvider.GetBitmap(wx.ART_GO_UP, client, size))
+        self.image_list.Add(wx.ArtProvider.GetBitmap(wx.ART_GO_DOWN, client, size))
 
         # Remove
-        self.image_list.Add(wx.ArtProvider.GetBitmap(wx.ART_DELETE, wx.ART_OTHER))
+        self.image_list.Add(wx.ArtProvider.GetBitmap(wx.ART_DELETE, client, size))
 
         # Insert
-        self.image_list.Add(wx.ArtProvider.GetBitmap(wx.ART_ADD_BOOKMARK, wx.ART_OTHER))
+        self.image_list.Add(wx.ArtProvider.GetBitmap(wx.ART_PLUS, client, size))
 
 
     def create_menus(self):
@@ -305,22 +308,24 @@ class MainFrame(wx.Frame):
         # os botões ficarão na horizontal, um ao lado do outro
         tree_commands_sizer = wx.BoxSizer(wx.HORIZONTAL)
         tree_commands_panel.SetSizer(tree_commands_sizer)
+        #tree_commands_panel.SetMinSize((-1, 80))
         
 
 
         # adiciona botões com ícones do image_list
         # All buttons will have no border
-        add_dir_button = wx.BitmapButton(tree_commands_panel, bitmap=self.image_list.GetBitmap(1))
-        add_file_button = wx.BitmapButton(tree_commands_panel, bitmap=self.image_list.GetBitmap(7))
-        remove_button = wx.BitmapButton(tree_commands_panel, bitmap=self.image_list.GetBitmap(6))
-        move_up_button = wx.BitmapButton(tree_commands_panel, bitmap=self.image_list.GetBitmap(4))
-        move_down_button = wx.BitmapButton(tree_commands_panel, bitmap=self.image_list.GetBitmap(5))
+        size = (16, 16)
+        add_dir_button = wx.BitmapButton(tree_commands_panel, bitmap=wx.ArtProvider.GetBitmap(wx.ART_FOLDER, wx.ART_OTHER, size))
+        add_file_button = wx.BitmapButton(tree_commands_panel, bitmap=wx.ArtProvider.GetBitmap(wx.ART_PLUS, wx.ART_OTHER, size))
+        remove_button = wx.BitmapButton(tree_commands_panel, bitmap=wx.ArtProvider.GetBitmap(wx.ART_DELETE, wx.ART_OTHER, size))
+        move_up_button = wx.BitmapButton(tree_commands_panel, bitmap=wx.ArtProvider.GetBitmap(wx.ART_GO_UP, wx.ART_OTHER, size))
+        move_down_button = wx.BitmapButton(tree_commands_panel, bitmap=wx.ArtProvider.GetBitmap(wx.ART_GO_DOWN, wx.ART_OTHER, size))
         # Resize the buttons
-        add_dir_button.SetSize((20, 20))
-        add_file_button.SetSize((20, 20))
-        remove_button.SetSize((20, 20))
-        move_up_button.SetSize((20, 20))
-        move_down_button.SetSize((20, 20))
+        #add_dir_button.SetSize((20, 20))
+        #add_file_button.SetSize((20, 20))
+        #remove_button.SetSize((20, 20))
+        #move_up_button.SetSize((20, 20))
+        #move_down_button.SetSize((20, 20))
 
         # Adiciona os botões ao sizer
         tree_commands_sizer.Add(add_file_button, 0, wx.EXPAND)
@@ -332,18 +337,20 @@ class MainFrame(wx.Frame):
         tree_commands_sizer.Add(move_up_button, 0, wx.EXPAND)
         tree_commands_sizer.Add(move_down_button, 0, wx.EXPAND)
 
+
+
         # Move up and down
         def on_move_up(event):
             item = self.tree.GetSelection()
             if item.IsOk():
-                param_id = self.tree.GetItemData(item)
+                param_id, key_id = self.tree.GetItemData(item)
                 new_param_id = self.data.move_param(param_id, -1)
                 self.populate_tree(self.data, new_param_id)
                 
         def on_move_down(event):
             item = self.tree.GetSelection()
             if item.IsOk():
-                param_id = self.tree.GetItemData(item)
+                param_id, key_id = self.tree.GetItemData(item)
                 new_param_id = self.data.move_param(param_id, 1)
                 self.populate_tree(self.data, new_param_id)
 
@@ -362,8 +369,8 @@ class MainFrame(wx.Frame):
             # get the previous tree selection
             item_old = event.GetOldItem()
             item_new = event.GetItem()
-            param_id_old = self.tree.GetItemData(item_old) if item_old else None
-            param_id_new = self.tree.GetItemData(item_new)
+            param_id_old, param_key_old = self.tree.GetItemData(item_old) if item_old else (None, None)
+            param_id_new, param_key_new = self.tree.GetItemData(item_new) if item_new else (None, None)
 
             if param_id_old == param_id_new:
                 return
@@ -423,7 +430,7 @@ class MainFrame(wx.Frame):
         def on_table_select(event):
             row = event.GetIndex()
             item = self.tree.GetSelection()
-            param_id = self.tree.GetItemData(item)
+            param_id, _ = self.tree.GetItemData(item)
             self.data.set_selected_item(param_id, row)
 
             self.refresh_prompts()
@@ -467,7 +474,7 @@ class MainFrame(wx.Frame):
     def apply_transform(self):
         item = self.tree.GetSelection()
         if item.IsOk():
-            param_id = self.tree.GetItemData(item)
+            param_id, _ = self.tree.GetItemData(item)
 
             # Load Python file
             wildcards = "Python files (*.py)|*.py"
@@ -488,7 +495,7 @@ class MainFrame(wx.Frame):
                 n = int(dialog.GetValue())
                 item = self.tree.GetSelection()
                 if item.IsOk():
-                    param_id = self.tree.GetItemData(item)
+                    param_id, _ = self.tree.GetItemData(item)
                     self.data.truncate_param(param_id, n)
                     self.populate_data()
             except ValueError:
@@ -497,8 +504,11 @@ class MainFrame(wx.Frame):
     def remove_selected_param(self):
         item = self.tree.GetSelection()
         if item.IsOk():
-            param_id = self.tree.GetItemData(item)
-            self.data.remove_param(param_id)
+            param_id, param_key = self.tree.GetItemData(item)
+            if param_key is None:
+                self.data.remove_param(param_id)
+            else:
+                self.data.remove_param_key(param_id, param_key)
             self.populate_data()
 
 
@@ -730,11 +740,10 @@ class MainFrame(wx.Frame):
         # Get only the module name
         module_name = llm_module.__name__.split('.')[-1]
         self.result_name = f'{module_name}_{hash_args}'
-        timestamp = pd.Timestamp.now().strftime("%Y%m%d%H%M%S")
 
         try:
             max_cost = self.preferences.max_cost
-            execute_llm.execute_llm(llm_module, module_args, config, output_dir, self.result_name, progress_callback=self.progress_dialog.update_progress, recreate=cache_overwrite, max_cost=max_cost)
+            timestamp = execute_llm.execute_llm(llm_module, module_args, config, output_dir, self.result_name, progress_callback=self.progress_dialog.update_progress, recreate=cache_overwrite, max_cost=max_cost)
         except Exception as e:
             self.execute_error = str(e)
             wx.CallAfter(self.execution_done)
@@ -745,7 +754,6 @@ class MainFrame(wx.Frame):
             return
 
         analysis_results = analyse_results.analyse_results(config, output_dir, self.result_name, self.analyse_functions)
-
 
         # Create the final zip file
         last_result_file = os.path.join(output_dir, f'{self.result_name}_{timestamp}.zip')
@@ -829,7 +837,7 @@ class MainFrame(wx.Frame):
 
     def populate_tree(self, data, selected_index=0):
         self.tree.DeleteAllItems()  # Limpar a árvore existente
-        root = self.tree.AddRoot("Parâmetros")
+        root = self.tree.AddRoot("Parâmetros", data=(None, None))
 
         # Carregar parâmetros na árvore
         for index, group in enumerate(data.parameters):
@@ -837,16 +845,16 @@ class MainFrame(wx.Frame):
                 for key in group[0].keys():
                     # FIXME join both loops
                     if not key.startswith("_"):
-                        item = self.tree.AppendItem(root, text=f"{key}", data=index)
+                        item = self.tree.AppendItem(root, text=f"{key}", data=(index, None))
                         self.tree.SetItemTextColour(item, data.get_variable_colors(key))
             else:
-                group_node = self.tree.AppendItem(root, text=f"Parameter Group {index+1}", data=index)
+                group_node = self.tree.AppendItem(root, text=f"Parameter Group {index+1}", data=(index, None))
                 
                 # Add imagem to the group node
                 self.tree.SetItemImage(group_node, 0, wx.TreeItemIcon_Normal)
                 for key in group[0].keys():
                     if not key.startswith("_"):
-                        item = self.tree.AppendItem(group_node, text=f"{key}", data=index)
+                        item = self.tree.AppendItem(group_node, text=f"{key}", data=(index, key))
                         self.tree.SetItemTextColour(item, data.get_variable_colors(key))
 
         # Selecionar o n-th registro

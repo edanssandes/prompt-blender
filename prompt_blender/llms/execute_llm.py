@@ -84,27 +84,47 @@ def execute_llm(llm_module, module_args, config, output_dir, result_name, recrea
     # Define the number of consumers
     num_consumers = 4
 
+    # latest timestamp. This will be used to determine the file name of the output file.
+    # If we are reusing all the cached files, the latest timestamp will be the same across all the runs.
+    max_timestamp = ''  
+
     # TODO parallel execution
     for argument_combination in config.get_parameter_combinations(callback):
-        _execute_inner(llm_module, module_args, output_dir, result_name, recreate, argument_combination)
+        output = _execute_inner(llm_module, module_args, output_dir, result_name, recreate, argument_combination)
+        max_timestamp = max(max_timestamp, output['timestamp'])
 
     llm_module.exec_close()
+
+    return max_timestamp
 
 def _execute_inner(llm_module, module_args, output_dir, result_name, recreate, argument_combination):
     prompt_file = os.path.join(output_dir, argument_combination.prompt_file)
     result_file = os.path.join(output_dir, argument_combination.get_result_file(result_name))
-    if not recreate and os.path.exists(result_file):
-        print(f'{prompt_file}: already processed')
-        return
-            
-
     with open(prompt_file, 'r') as file:
         prompt_content = file.read()
+
+    if not recreate and os.path.exists(result_file):
+        # Read the result file
+        with open(result_file, 'r') as file:
+            output = json.load(file)
+        
+        # Check if the prompt file is the same
+        if output['prompt'] != prompt_content:
+            print(f'{prompt_file}: prompt file has changed')
+            recreate = True
+            print(f'{prompt_file}: already processed')
+        else:
+            return output
+            
+
 
     print(f'{prompt_file}: processing')
     t0 = time.time()
     response = llm_module.exec(prompt_content, **module_args)
     t1 = time.time()
+    #timestamp = pd.Timestamp.now().strftime("%Y%m%d%H%M%S")
+    # UTC timestamp
+    timestamp = time.strftime("%Y%m%d%H%M%S", time.gmtime())
 
     # Remove sensitive arguments from the output
     module_args_public = {k: v for k, v in module_args.items() if not k.startswith('_')}  # FIXME duplicated code
@@ -117,6 +137,7 @@ def _execute_inner(llm_module, module_args, output_dir, result_name, recreate, a
             'response': response['response'],
             'cost': response.get('cost', None),
             'elapsed_time': t1 - t0,
+            'timestamp': timestamp,
             'app_version': info.__version__,
         }
     with open(result_file, 'w') as file:

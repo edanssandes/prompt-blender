@@ -74,7 +74,9 @@ class Model:
                 "Avalie o termo de confidencialidade representado em aspas triplas quanto ao critério '{criterion}'. Descreva como este termo aborda o critério mencionado e forneça uma pontuação de 1 a 10 para a eficácia com que este critério é tratado. Responda no seguinte formato de saída JSON: {{'text': '<Justifique a seleção para o critério.>',\n'pontuação': <Pontuação de 1 a 5, conforme a aderência>}}.\n\n \"\"\"{document_text}\"\"\""
             ]
         }     
-        return Model(data)
+        model = Model(data)
+        model.is_modified = False
+        return model
 
     @staticmethod
     def create_from_clipboard():   
@@ -207,6 +209,13 @@ class Model:
         self.data["parameters"].pop(param_id)
         self.is_modified = True
 
+    def remove_param_key(self, param_id, key):
+        param = self.get_parameter(param_id)
+        if param:
+            for row in param:
+                row.pop(key, None)
+            self.is_modified = True
+
     def move_param(self, param_id, direction: int):
         new_param_id = param_id + direction
         # direction can be -1 or 1
@@ -217,7 +226,7 @@ class Model:
             return new_param_id
         else:
             return param_id
-
+        
     def add_param_directory(self, directory_path):
         param = []
         for file in os.listdir(directory_path):
