@@ -1,13 +1,16 @@
 import re
-from collections import defaultdict
 import os
-from pathlib import Path
 import pyperclip
 import json
+import tempfile
+import pandas as pd
+from collections import defaultdict
+from pathlib import Path
 from datetime import datetime
 from prompt_blender import info
 from prompt_blender.arguments import Config, ParameterCombination
 from importlib.util import spec_from_file_location, module_from_spec
+
 
 class Model:
     # Cores com contraste suficiente para serem usadas no highlight, sobre um fundo branco
@@ -182,12 +185,15 @@ class Model:
         return values
 
     def get_variable_colors(self, variable_name):
-
-        if self.variable_colors.get(variable_name) is None:
-            # Seleciona as cores em ordem de aparição no default_colors
-            self.variable_colors[variable_name] = self.default_colors[len(self.variable_colors) % len(self.default_colors)]
-
         return self.variable_colors.get(variable_name)
+
+    def add_variable_color(self, variable_name):
+        if variable_name in self.variable_colors:
+            return self.variable_colors[variable_name]
+        else:
+            color = self.default_colors[len(self.variable_colors) % len(self.default_colors)]
+            self.variable_colors[variable_name] = color
+            return color
 
     def get_parameter(self, param_id):
         if param_id < 0 or param_id >= len(self.data["parameters"]):
@@ -214,6 +220,10 @@ class Model:
         if param:
             for row in param:
                 row.pop(key, None)
+                
+            # Remove all registers that have no keys
+            self.data["parameters"][param_id] = [row for row in param if row]
+            
             self.is_modified = True
 
     def move_param(self, param_id, direction: int):
@@ -235,16 +245,26 @@ class Model:
                 param.append({'_id': file, 'document_text': Path(f).read_text()})
         self.add_param(param)     
 
-    def add_param_file(self, file_path, encoding='utf-8'):
-        variable, extension = os.path.basename(file_path).split('.')
-        extension = extension.lower()
+    def add_param_content(self, content, extension):
+        # Create system temporary file
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix=f'.{extension}') as file:
+            file.write(content)
+            file.close()
+            file_path = file.name
+            self.add_param_file(file_path, variable='value')
 
-        import pandas as pd
+    def add_param_file(self, file_path, encoding='utf-8', variable=None):
+        _variable, extension = os.path.basename(file_path).split('.')
+        extension = extension.lower()
+        if variable is None:
+            variable = _variable
+
         if extension in ('xlsx', 'xls'):
             df = pd.read_excel(file_path)
             param = df.to_dict(orient='records')
         elif extension in ('csv',):
-            df = pd.read_csv(file_path, encoding=encoding)
+            # read csv - all strings
+            df = pd.read_csv(file_path, encoding=encoding, dtype=str)
             param = df.to_dict(orient='records')
         elif extension in ('txt',):
             with open(file_path, 'r', encoding=encoding) as file:
@@ -290,6 +310,16 @@ class Model:
         param = self.get_parameter(param_id)
         if param:
             self.data["parameters"][param_id] = param[:max_rows]
+            self.is_modified = True
+
+    def rename_param_key(self, param_id, old_key, new_key):
+        param = self.get_parameter(param_id)
+        if param:
+            for row in param:
+                row[new_key] = row.pop(old_key)
+                # change color
+                if old_key in self.variable_colors:
+                    self.variable_colors[new_key] = self.variable_colors.pop(old_key)
             self.is_modified = True
 
     def get_hightlight_positions(self, prompt_id, interpolated):

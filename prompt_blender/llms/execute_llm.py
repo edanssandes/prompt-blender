@@ -37,7 +37,7 @@ def load_modules(paths):
 
 
 
-def execute_llm(llm_module, module_args, config, output_dir, result_name, recreate=False, progress_callback=None, max_cost=0):
+def execute_llm(llm_module, module_args, config, output_dir, result_name, cache_timeout=None, progress_callback=None, max_cost=0):
     """
     Executes the LLM (Language Model) with the given arguments and output files.
 
@@ -81,40 +81,42 @@ def execute_llm(llm_module, module_args, config, output_dir, result_name, recrea
         else:
             return True
 
-    # Define the number of consumers
-    num_consumers = 4
-
     # latest timestamp. This will be used to determine the file name of the output file.
     # If we are reusing all the cached files, the latest timestamp will be the same across all the runs.
     max_timestamp = ''  
 
-    # TODO parallel execution
     for argument_combination in config.get_parameter_combinations(callback):
-        output = _execute_inner(llm_module, module_args, output_dir, result_name, recreate, argument_combination)
+        output = _execute_inner(llm_module, module_args, output_dir, result_name, cache_timeout, argument_combination)
         max_timestamp = max(max_timestamp, output['timestamp'])
+        total_cost += output['cost'] if output.get('cost', None) is not None else 0
+        time.sleep(0.01)  # This allows the animation to be shown in the GUI for executions that are too fast (e.g. full cache hits)
 
     llm_module.exec_close()
 
     return max_timestamp
 
-def _execute_inner(llm_module, module_args, output_dir, result_name, recreate, argument_combination):
+def _execute_inner(llm_module, module_args, output_dir, result_name, cache_timeout, argument_combination):
     prompt_file = os.path.join(output_dir, argument_combination.prompt_file)
     result_file = os.path.join(output_dir, argument_combination.get_result_file(result_name))
     with open(prompt_file, 'r') as file:
         prompt_content = file.read()
 
-    if not recreate and os.path.exists(result_file):
-        # Read the result file
-        with open(result_file, 'r') as file:
-            output = json.load(file)
-        
-        # Check if the prompt file is the same
-        if output['prompt'] != prompt_content:
-            print(f'{prompt_file}: prompt file has changed')
-            recreate = True
-            print(f'{prompt_file}: already processed')
-        else:
-            return output
+    if cache_timeout is None:
+        cache_timeout = float('inf')
+
+    if os.path.exists(result_file):
+        cache_age = time.time() - os.path.getmtime(result_file)
+
+        if cache_age < cache_timeout:
+            # Read the result file
+            with open(result_file, 'r') as file:
+                output = json.load(file)
+
+            # Check if the prompt file is the same
+            if output['prompt'] != prompt_content:
+                print(f'{prompt_file}: prompt file has changed')
+            else:
+                return output
             
 
 

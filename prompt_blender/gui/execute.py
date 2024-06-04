@@ -5,10 +5,18 @@ from prompt_blender.llms import execute_llm
 class ExecuteDialog(wx.Dialog):
     CACHE_MODE_KEEP = 0
     CACHE_MODE_REPLACE = 1
-    CACHE_MODES = {
-        CACHE_MODE_KEEP: "Always keep cache",
-        CACHE_MODE_REPLACE: "Replace cache if exists"
-    }
+    #CACHE_MODES = {
+    #    CACHE_MODE_KEEP: "Always keep cache",
+    #    CACHE_MODE_REPLACE: "Replace cache if exists"
+    #}
+    CACHE_MODES = [
+        (0, "Expires and replaces cache"),
+        (24*3600, "1 day"),
+        (7*24*3600, "1 week"),
+        (30*24*3600, "1 month"),
+        (365*24*3600, "1 year"),
+        (None, "Never expires"),
+    ]
 
     def __init__(self, parent, modules):
         super(ExecuteDialog, self).__init__(parent, title='Execution Configuration', size=(300, 180))
@@ -20,7 +28,7 @@ class ExecuteDialog(wx.Dialog):
         self.module_args = {module_name: llm_module.get_args() for module_name, llm_module in self.available_models.items()}
 
         self.selected_module = 'chatgpt'
-        self.selected_cache_mode = self.CACHE_MODE_KEEP
+        self.selected_cache_timeout = len(self.CACHE_MODES) - 1
 
         self.init_ui()
         self.Centre()
@@ -38,8 +46,8 @@ class ExecuteDialog(wx.Dialog):
         grid.SetFlexibleDirection(wx.HORIZONTAL)
 
         # Combo box with cache modes.
-        self.cache_mode = wx.Choice(self.panel, choices=list(self.CACHE_MODES.values()))
-        grid.Add(wx.StaticText(self.panel, label="Cache Mode:"), flag=wx.ALL | wx.ALIGN_CENTER_VERTICAL, border=5)
+        self.cache_mode = wx.Choice(self.panel, choices=[x for _,x in self.CACHE_MODES])
+        grid.Add(wx.StaticText(self.panel, label="Cache Timeout:"), flag=wx.ALL | wx.ALIGN_CENTER_VERTICAL, border=5)
         grid.Add(self.cache_mode, proportion=1, flag=wx.ALL | wx.EXPAND, border=1)
      
 
@@ -82,8 +90,8 @@ class ExecuteDialog(wx.Dialog):
 
         # Cache mode update
         def on_cache_mode(event):
-            self.selected_cache_mode = self.cache_mode.GetSelection()
-            print("Cache mode: ", self.selected_cache_mode)
+            self.selected_cache_timeout = self.cache_mode.GetSelection()
+            print("Cache mode: ", self.selected_cache_timeout)
 
         self.cache_mode.Bind(wx.EVT_CHOICE, on_cache_mode)
         
@@ -132,7 +140,7 @@ class ExecuteDialog(wx.Dialog):
         self.combo.SetStringSelection(self.selected_module)
 
         # Select cache mode
-        self.cache_mode.SetSelection(self.selected_cache_mode)
+        self.cache_mode.SetSelection(self.selected_cache_timeout)
 
         # Expand dialog to fit new content
         #self.parameters_panel.Fit()
@@ -169,8 +177,8 @@ class ExecuteDialog(wx.Dialog):
     def set_module_args(self, args):
         self.module_args[self.selected_module] = args
 
-    def get_cache_mode(self):
-        return self.cache_mode.GetSelection()
+    def get_cache_timeout(self):
+        return self.CACHE_MODES[self.cache_mode.GetSelection()][0]
 
 if __name__ == '__main__':
     app = wx.App(False)

@@ -5,7 +5,6 @@ from prompt_blender.gui.model import Model
 import wx.lib.agw.ultimatelistctrl as ULC
 import wx.adv
 import pandas as pd
-import threading
 
 from prompt_blender.arguments import Config
 from prompt_blender.blend import blend_prompt
@@ -15,6 +14,7 @@ from prompt_blender.llms import dummy
 from prompt_blender.gui.progress import ProgressDialog
 from prompt_blender.gui.execute import ExecuteDialog
 from prompt_blender.gui.preferences import PreferencesDialog, Preferences
+from prompt_blender.gui.input_list import InputListDialog
 
 from prompt_blender.analysis import gpt_cost, gpt_json
 from prompt_blender.analysis import analyse_results
@@ -85,26 +85,17 @@ class MainFrame(wx.Frame):
         self.populate_data()
 
     def load_images(self):
-        self.image_list = wx.ImageList(24, 24)
-        size = (24, 24)
+        size = (16, 16)
+        self.image_list = wx.ImageList(*size)
 
         client = wx.ART_BUTTON
 
         # images from art provider (Folder, File, Spreedsheet, json, xls_format)
         self.image_list.Add(wx.ArtProvider.GetBitmap(wx.ART_REPORT_VIEW, client, size))
-        self.image_list.Add(wx.ArtProvider.GetBitmap(wx.ART_FOLDER, client, size))
-        self.image_list.Add(wx.ArtProvider.GetBitmap(wx.ART_NORMAL_FILE, client, size))
-        self.image_list.Add(wx.ArtProvider.GetBitmap(wx.ART_LIST_VIEW, client, size))
-
-        # Move up and down
-        self.image_list.Add(wx.ArtProvider.GetBitmap(wx.ART_GO_UP, client, size))
-        self.image_list.Add(wx.ArtProvider.GetBitmap(wx.ART_GO_DOWN, client, size))
-
-        # Remove
-        self.image_list.Add(wx.ArtProvider.GetBitmap(wx.ART_DELETE, client, size))
 
         # Insert
         self.image_list.Add(wx.ArtProvider.GetBitmap(wx.ART_PLUS, client, size))
+        self.image_list.Add(wx.ArtProvider.GetBitmap(wx.ART_ADD_BOOKMARK, client, size))
 
 
     def create_menus(self):
@@ -234,6 +225,8 @@ class MainFrame(wx.Frame):
                 self.data = Model.create_from_file(path)
                 self.data.add_on_modified_callback(self.update_project_state)
                 self.populate_data()
+                self.preferences.add_recent_file(path)
+                self.preferences.save_to_file(PREFERENCE_FILE)
 
         file_menu.Bind(wx.EVT_MENU, on_open_project, id=wx.ID_OPEN)
 
@@ -248,6 +241,7 @@ class MainFrame(wx.Frame):
                         path += f".{PROJECT_FILE_EXTENSION}"
 
                     self.data.save_to_file(path)
+                    self.preferences.add_recent_file(path)
                 else:
                     # Cancelled
                     return False  
@@ -316,10 +310,20 @@ class MainFrame(wx.Frame):
         # All buttons will have no border
         size = (16, 16)
         add_dir_button = wx.BitmapButton(tree_commands_panel, bitmap=wx.ArtProvider.GetBitmap(wx.ART_FOLDER, wx.ART_OTHER, size))
-        add_file_button = wx.BitmapButton(tree_commands_panel, bitmap=wx.ArtProvider.GetBitmap(wx.ART_PLUS, wx.ART_OTHER, size))
+        add_file_button = wx.BitmapButton(tree_commands_panel, bitmap=wx.ArtProvider.GetBitmap(wx.ART_NEW, wx.ART_OTHER, size))
+        add_list_button = wx.BitmapButton(tree_commands_panel, bitmap=wx.ArtProvider.GetBitmap(wx.ART_PLUS, wx.ART_OTHER, size))
         remove_button = wx.BitmapButton(tree_commands_panel, bitmap=wx.ArtProvider.GetBitmap(wx.ART_DELETE, wx.ART_OTHER, size))
         move_up_button = wx.BitmapButton(tree_commands_panel, bitmap=wx.ArtProvider.GetBitmap(wx.ART_GO_UP, wx.ART_OTHER, size))
         move_down_button = wx.BitmapButton(tree_commands_panel, bitmap=wx.ArtProvider.GetBitmap(wx.ART_GO_DOWN, wx.ART_OTHER, size))
+
+        # Add tooltips
+        add_dir_button.SetToolTip("Add Directory")
+        add_file_button.SetToolTip("Add File")
+        add_list_button.SetToolTip("Add Direct List")
+        remove_button.SetToolTip("Remove Parameter")
+        move_up_button.SetToolTip("Move Up")
+        move_down_button.SetToolTip("Move Down")
+        
         # Resize the buttons
         #add_dir_button.SetSize((20, 20))
         #add_file_button.SetSize((20, 20))
@@ -330,6 +334,7 @@ class MainFrame(wx.Frame):
         # Adiciona os botões ao sizer
         tree_commands_sizer.Add(add_file_button, 0, wx.EXPAND)
         tree_commands_sizer.Add(add_dir_button, 0, wx.EXPAND)
+        tree_commands_sizer.Add(add_list_button, 0, wx.EXPAND)
         tree_commands_sizer.Add(remove_button, 0, wx.EXPAND)
 
         # Up and down will be right aligned
@@ -384,13 +389,14 @@ class MainFrame(wx.Frame):
         def on_tree_right_click(event):
             menu = wx.Menu()
             # função de bind em cada item do menu
-            menu.Append(1, "Add directory...")
-            menu.Append(2, "Add file...")
-            menu.AppendSeparator()
+            #menu.Append(1, "Add directory...")
+            #menu.Append(2, "Add file...")
+            #menu.AppendSeparator()
             menu.Append(3, "Remove")
             menu.AppendSeparator()
             menu.Append(4, "Transform...")
             menu.Append(5, "Truncate")
+            menu.Append(6, "Rename")
 
 
             # Evento de clique do menu de contexto
@@ -406,6 +412,8 @@ class MainFrame(wx.Frame):
                     self.apply_transform()
                 elif item == 5:
                     self.truncate_selected_param()
+                elif item == 6:
+                    self.rename_selected_param()
 
             self.Bind(wx.EVT_MENU, on_menu_click)
 
@@ -417,6 +425,7 @@ class MainFrame(wx.Frame):
         add_dir_button.Bind(wx.EVT_BUTTON, lambda event: self.add_param_directory())
         add_file_button.Bind(wx.EVT_BUTTON, lambda event: self.add_param_file())
         remove_button.Bind(wx.EVT_BUTTON, lambda event: self.remove_selected_param())
+        add_list_button.Bind(wx.EVT_BUTTON, lambda event: self.add_param_list())
 
 
 
@@ -461,15 +470,25 @@ class MainFrame(wx.Frame):
         wildcards = "All supported files|*.txt;*.xlsx;*.xls;*.csv;*.json;*.jsonl|Text files (*.txt)|*.txt|Excel files (*.xlsx, *.xls)|*.xlsx;*.xls|CSV files (*.csv)|*.csv|JSON files (*.json)|*.json|JSON Line files (*.jsonl)|*.jsonl"
 
         # Apresentar caixa de dialogo,
-
-        dialog = wx.FileDialog(self, "Selecione um arquivo", wildcard=wildcards, style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST)
+        dialog = wx.FileDialog(self, "Selecione um arquivo", wildcard=wildcards, style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST | wx.FD_MULTIPLE)
         if dialog.ShowModal() == wx.ID_OK:
             try:
-                path = dialog.GetPath()
-                self.data.add_param_file(path)
+                paths = dialog.GetPaths()
+                for path in paths:
+                    self.data.add_param_file(path)
                 self.populate_data()
             except ValueError as e:
                 wx.MessageBox(f"Error: {e}", "Error", wx.OK | wx.ICON_ERROR)
+
+    def add_param_list(self):
+        # Show a dialog to enter text in multiline mode
+        #dialog = wx.TextEntryDialog(self, "Enter the list of values, one per line", "Add List", "", style=wx.TE_MULTILINE | wx.OK | wx.CANCEL)
+        dialog = InputListDialog(self, "Add List", "Enter the list of values, one per line")
+        if dialog.ShowModal() == wx.ID_OK:
+            values = dialog.GetValue()
+            extension = dialog.GetExtension()
+            self.data.add_param_content(values, extension)
+            self.populate_data()
 
     def apply_transform(self):
         item = self.tree.GetSelection()
@@ -510,6 +529,17 @@ class MainFrame(wx.Frame):
             else:
                 self.data.remove_param_key(param_id, param_key)
             self.populate_data()
+
+    def rename_selected_param(self):
+        item = self.tree.GetSelection()
+        if item.IsOk():
+            param_id, param_key = self.tree.GetItemData(item)
+            if param_key is not None:
+                dialog = wx.TextEntryDialog(self, "Enter the new name for the parameter", "Rename", param_key)
+                if dialog.ShowModal() == wx.ID_OK:
+                    new_name = dialog.GetValue()
+                    self.data.rename_param_key(param_id, param_key, new_name)
+                    self.populate_data()
 
 
     def populate_data(self):
@@ -552,6 +582,13 @@ class MainFrame(wx.Frame):
             self.recent_menu.Remove(item)
         
         for i, file in enumerate(self.preferences.recent_files):
+            # Relative path to the project file if it is a subdirectory of the current directory
+            if file.startswith(os.getcwd()):
+                file = os.path.relpath(file)
+                # prefix pointing to the current directory
+                file = os.path.join(".", file)
+
+
             self.recent_menu.Append(2000 + i, file)
 
         if len(self.preferences.recent_files) == 0:
@@ -661,7 +698,7 @@ class MainFrame(wx.Frame):
         hbox = wx.BoxSizer(wx.HORIZONTAL)
 
         # Add "View Mode" choice list on the left of the hbox
-        self.view_mode = wx.Choice(panel, choices=["Edit Mode", "View Prompt", "View Result"])
+        self.view_mode = wx.Choice(panel, choices=["Edit Mode", "View Prompt", "Debug Result"])
         hbox.Add(self.view_mode, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 5)
         self.view_mode.SetSelection(0)
 
@@ -695,8 +732,23 @@ class MainFrame(wx.Frame):
 
     
     def execute_prompts(self):
+        # Show message error if there is no prompt
+        if self.data.get_number_of_prompts() == 0:
+            wx.MessageBox("No prompts to execute.\nPlease, add at least one prompt", "Error", wx.OK | wx.ICON_ERROR)
+            return
+        
+        # Show message error if there is missing variable in the prompts
+        error_pages = [page for page in self.prompt_pages if page.missing_variables]
+        if error_pages:
+            wx.MessageBox("Missing variables in the prompts.\nPlease, correct them before executing", "Error", wx.OK | wx.ICON_ERROR)
+            # Select the first page with missing variables
+            self.notebook.SetSelection(self.prompt_pages.index(error_pages[0]))
+            return
+
+
         # Execute the prompts
         self.execute_error = None
+        self.interrupted = False
 
         #self.progress_dialog.run_task(long_running_task)
         ret = self.execute_dialog.ShowModal()
@@ -718,8 +770,7 @@ class MainFrame(wx.Frame):
 
     def task_all(self):
         llm_module = self.execute_dialog.get_selected_module()
-        cache_mode = self.execute_dialog.get_cache_mode()
-        cache_overwrite = cache_mode == ExecuteDialog.CACHE_MODE_REPLACE
+        cache_timeout = self.execute_dialog.get_cache_timeout()
 
         self.last_result_file = None
         wx.CallAfter(self.update_project_state)
@@ -743,7 +794,9 @@ class MainFrame(wx.Frame):
 
         try:
             max_cost = self.preferences.max_cost
-            timestamp = execute_llm.execute_llm(llm_module, module_args, config, output_dir, self.result_name, progress_callback=self.progress_dialog.update_progress, recreate=cache_overwrite, max_cost=max_cost)
+            timestamp = execute_llm.execute_llm(llm_module, module_args, config, output_dir, self.result_name, progress_callback=self.progress_dialog.update_progress, cache_timeout=cache_timeout, max_cost=max_cost)
+            if not self.progress_dialog.running:
+                self.interrupted = True
         except Exception as e:
             self.execute_error = str(e)
             wx.CallAfter(self.execution_done)
@@ -794,9 +847,11 @@ class MainFrame(wx.Frame):
         self.progress_dialog.Hide()
 
         if self.execute_error:
-            wx.MessageBox(f"Erro ao executar o LLM: {self.execute_error}", "Erro", wx.OK | wx.ICON_ERROR)
+            wx.MessageBox(f"LLM Execution error: {self.execute_error}", "Erro", wx.OK | wx.ICON_ERROR)
+        elif self.interrupted:
+            wx.MessageBox("Interrupted Excecution", "Interruption", wx.OK | wx.ICON_INFORMATION)
         else:
-            wx.MessageBox("LLM executado com sucesso", "Sucesso", wx.OK | wx.ICON_INFORMATION)
+            wx.MessageBox("LLM Execution succesful", "Sucesso", wx.OK | wx.ICON_INFORMATION)
             self.export_results()
 
 
@@ -830,7 +885,8 @@ class MainFrame(wx.Frame):
             self.notebook.AddPage(prompt_page, prompt_page.title)
             self.prompt_pages.append(prompt_page)
 
-        self.notebook.AddPage(wx.Panel(self.notebook), "", imageId=7) 
+        # Add a page with a "+" icon to add new prompts
+        self.notebook.AddPage(wx.Panel(self.notebook), "", imageId=2) 
 
 
         
@@ -839,23 +895,37 @@ class MainFrame(wx.Frame):
         self.tree.DeleteAllItems()  # Limpar a árvore existente
         root = self.tree.AddRoot("Parâmetros", data=(None, None))
 
+        variable_names = set()
+
         # Carregar parâmetros na árvore
         for index, group in enumerate(data.parameters):
-            if len(group[0]) == 1:  # Assume todos os elementos do grupo têm a mesma estrutura
-                for key in group[0].keys():
-                    # FIXME join both loops
-                    if not key.startswith("_"):
-                        item = self.tree.AppendItem(root, text=f"{key}", data=(index, None))
-                        self.tree.SetItemTextColour(item, data.get_variable_colors(key))
+            # Group node with italic font
+            group_node = self.tree.AppendItem(root, text=f"Parameter Group {index+1}", data=(index, None))
+            self.tree.SetItemFont(group_node, wx.Font(10, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_ITALIC, wx.FONTWEIGHT_NORMAL))
+            # gray color
+            self.tree.SetItemTextColour(group_node, wx.Colour(64, 64, 64))
+            
+            # Add imagem to the group node
+            self.tree.SetItemImage(group_node, 0, wx.TreeItemIcon_Normal)
+
+            if len(group) == 0:
+                # Add a dummy item to show that the group is empty
+                item = self.tree.AppendItem(group_node, text="(empty)", data=(index, None))
+                # In gray
+                self.tree.SetItemTextColour(item, wx.Colour(128, 128, 128))
+                # italic
+                self.tree.SetItemFont(item, wx.Font(10, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_ITALIC, wx.FONTWEIGHT_NORMAL))
             else:
-                group_node = self.tree.AppendItem(root, text=f"Parameter Group {index+1}", data=(index, None))
-                
-                # Add imagem to the group node
-                self.tree.SetItemImage(group_node, 0, wx.TreeItemIcon_Normal)
                 for key in group[0].keys():
                     if not key.startswith("_"):
-                        item = self.tree.AppendItem(group_node, text=f"{key}", data=(index, key))
-                        self.tree.SetItemTextColour(item, data.get_variable_colors(key))
+                        if key in variable_names:
+                            # insert tag after the item (in the right)
+                            tag = " (duplicated)"
+                        else:
+                            tag = ""
+                            variable_names.add(key)
+                        item = self.tree.AppendItem(group_node, text=f"{key}{tag}", data=(index, key))
+                        self.tree.SetItemTextColour(item, data.add_variable_color(key))
 
         # Selecionar o n-th registro
         if len(data.parameters) > 0:
@@ -875,13 +945,12 @@ class MainFrame(wx.Frame):
 
         # Obter os detalhes do parâmetro selecionado
         param = data.get_parameter(param_id)
-        if param is None:
+        if param is None or len(param) == 0:
+            self.table.InsertColumn(0, "No data", width=500)
             self.table.Thaw()
             return
         else:
             table = pd.DataFrame(param)
-
-
 
         # Set column names
         for i, col in enumerate(table.columns):
@@ -939,6 +1008,7 @@ class PromptPage(wx.Panel):
         self.prompt_id = prompt_id
         self.data = data
         self.view_mode = 0
+        self.missing_variables = False
 
         # Sizer para o layout da página
         sizer = wx.BoxSizer(wx.VERTICAL)
@@ -1006,13 +1076,24 @@ class PromptPage(wx.Panel):
 
     def highlight_prompt(self):
         highlight_positions = self.data.get_hightlight_positions(prompt_id=self.prompt_id, interpolated=(self.view_mode==1))
+        self.missing_variables = False
 
-        # Remove todas as cores existentes
-        self.prompt_editor.SetStyle(0, self.prompt_editor.GetLastPosition(), wx.TextAttr(wx.BLACK))
+        # Background color for the prompt editor
+        bg_color = self.prompt_editor.GetBackgroundColour()
+
+        # Remove all foreground and background colors
+        self.prompt_editor.SetStyle(0, self.prompt_editor.GetLastPosition(), wx.TextAttr(wx.BLACK, bg_color))
+
+        
 
         # Aplicar coloração ao texto
         for var_name, start, end in highlight_positions:
-            self.prompt_editor.SetStyle(start, end, wx.TextAttr(self.data.get_variable_colors(var_name)))
+            color = self.data.get_variable_colors(var_name)
+            if color is not None:
+                self.prompt_editor.SetStyle(start, end, wx.TextAttr(color))
+            else:
+                self.missing_variables = True
+                self.prompt_editor.SetStyle(start, end, wx.TextAttr(wx.YELLOW, wx.RED))
 
     def refresh(self):
         #Lock the prompt editor if the view checkbox is checked

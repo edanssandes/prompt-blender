@@ -26,7 +26,7 @@ def exec(prompt):
     }
     print("Executando o modelo dummy...")
 
-    time.sleep(0.05)
+    time.sleep(0.15)
 
     return {
         "response": fake_response,

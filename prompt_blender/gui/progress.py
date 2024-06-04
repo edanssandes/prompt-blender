@@ -45,6 +45,9 @@ class ProgressDialog(wx.Dialog):
         self.button.Bind(wx.EVT_BUTTON, self.on_cancel)
         vbox.Add(self.button, flag=wx.ALL | wx.CENTER, border=10)
 
+        # When closing the dialog, call the cancel method
+        self.Bind(wx.EVT_CLOSE, self.on_cancel)
+
         panel.SetSizer(vbox)
 
     def update_progress(self, current_value, max_value, description):
@@ -71,9 +74,14 @@ class ProgressDialog(wx.Dialog):
 
     def on_cancel(self, event):
         self.running = False
+        print("Task canceled")
+
         # FIXME SegFault 
         if self.task_thread.is_alive():
+            print("Waiting for thread to finish")
             self.task_thread.join()
+
+        print("Thread finished")
         self.Hide()
 
     def on_finish(self, event):
