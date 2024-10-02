@@ -23,9 +23,24 @@ PromptBlender is a GUI tool designed to automate the generation, execution, and 
 - Python 3.8 or later.
 - Access to LLM APIs (currently only OpenAI's ChatGPT is supported).
 
+### Anaconda Environment (optional)
+
+Before installation, you may want to create an Anaconda environment to manage dependencies and isolate your project, ensuring that the installation and running of your project doesn't affect or interfere with other Python projects. You can create the environment by running the following command in your terminal:
+
+```bash
+conda create -n prompt-blender python=3.8
+```
+
+In order to activate the environment, run:
+
+```bash
+conda activate prompt-blender
+```
+
+
 ### Installation
 
-Clone the PromptBlender repository to your local machine:
+Install the PromptBlender repository to your local machine:
 
 ```bash
 pip install git+https://github.com/edanssandes/prompt-blender
