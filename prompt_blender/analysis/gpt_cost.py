@@ -7,7 +7,6 @@ analyse_info = {
 }
 
 def analyse(response):
-    print(response)
     usage = response.get("usage", None)
     if usage is None:
         return None
@@ -25,10 +24,16 @@ def analyse(response):
     elif response['model'] == 'gpt-4o-2024-05-13':
         cost_in = 5.00
         cost_out = 15.00
+    elif response['model'] == 'gpt-4o-2024-08-06':
+        cost_in = 2.50
+        cost_out = 10.00        
     elif response['model'] == 'gpt-manual-ui':
         cost_in = 0.00
         cost_out = 0.00
-
+    elif response['model'] == 'gpt-4o-mini-2024-07-18':
+        cost_in = 0.15
+        cost_out = 0.60
+        
     total_cost_in = tokens_in/1000000*cost_in
     total_cost_out = tokens_out/1000000*cost_out
 

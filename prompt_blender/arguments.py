@@ -7,9 +7,10 @@ import json
 import hashlib
 
 class Config:
-    def __init__(self, parameters=None, prompts=None):
+    def __init__(self, parameters=None, prompts=None, disabled_prompts=None):
         self._parameters = parameters
         self._prompts = prompts
+        self._disabled_prompts = set(disabled_prompts) if disabled_prompts else set()
 
     @staticmethod
     def load_from_dir(directory: str):
@@ -56,14 +57,13 @@ class Config:
     
     @staticmethod
     def load_from_dict(data: dict):
-        return Config(parameters=data['parameters'], prompts=data['prompts'])
+        return Config(parameters=data['parameters'], prompts=data['prompts'], disabled_prompts=data.get('disabled_prompts', []))
 
     def get_parameter_combinations(self, callback=None):
-        enumerated_prompts = [{'_id': f'prompt_{prompt_id:02d}', 'prompt': prompt} for prompt_id, prompt in enumerate(self._prompts)]
+        prompts = [{'_id': prompt_name, 'prompt': prompt} for prompt_name, prompt in self.enabled_prompts.items()]
 
-        # Create enumerated combination, such that each combination has a unique tuple (i0, i1, i2, ...)
-        #enumerated_parameters = [[(i,y) for i,y in enumerate(x)] for x in [enumerated_prompts] + self._parameters]
-        enumerated_parameters = [enumerated_prompts] + self._parameters
+        # Create parameters combinations, such that each combination has a unique tuple (i0, i1, i2, ...)
+        parameters = [prompts] + list(self._parameters.values())
 
         num_combinations = self.get_num_combinations()
         if callback:
@@ -71,23 +71,23 @@ class Config:
         else:
             keep_running = True
 
-        for i, combination in enumerate(itertools.product(*enumerated_parameters)):
+        for i, combination in enumerate(itertools.product(*parameters)):
             yield ParameterCombination(combination)
             if callback:
                 keep_running = callback(i+1, num_combinations)
                 if keep_running is False:
                     break
 
-    def get_parameter_combination(self, prompt_id, values):
-        # FIXME: remove the "enumerated" prefix elsewhere, as it is not needed anymore.
-        enumerated_values = [{'_id': f'prompt_{prompt_id:02d}', 'prompt': self._prompts[prompt_id]}] + [values]
-        return ParameterCombination(enumerated_values)
+    def get_parameter_combination(self, prompt_name, values):
+        parameters = [{'_id': prompt_name, 'prompt': self._prompts[prompt_name]}] + [values]
+        return ParameterCombination(parameters)
 
     def get_num_combinations(self):
         # Calculate multiplication of all parameter lengths
-        num_combinations = len(self._prompts)
-        for parameter in self._parameters:
+        num_combinations = len(self.enabled_prompts)
+        for parameter in self._parameters.values():
             num_combinations *= len(parameter)
+        print('Number of combinations:', num_combinations)
         return num_combinations
     
 
@@ -97,6 +97,10 @@ class Config:
             'parameters': self._parameters,
             'prompts': self._prompts,
         }
+    
+    @property
+    def enabled_prompts(self):
+        return {k:v for k,v in self._prompts.items() if k not in self._disabled_prompts}
 
 class ParameterCombination:
     def __init__(self, combination: list):
@@ -123,13 +127,13 @@ class ParameterCombination:
             print(f'Please, check the prompt file and the input arguments.')
             self._prompt_content = None
             self._missing_argument = [str(e)]
+            return  # TODO Test this case when we delete a parameter after validating the prompt content
 
 
         # Calculate non-cryptographic hash of the prompt content
         # sha1 cryptographic hash of the prompt content
         prompt_hash = hashlib.sha1(self._prompt_content.encode()).hexdigest()
         filepath = os.path.join('cache', prompt_hash[:2], prompt_hash)
-        print(filepath)
 
         self._prompt_arguments = prompt_arguments
         self._prompt_arguments_masked = prompt_arguments_masked

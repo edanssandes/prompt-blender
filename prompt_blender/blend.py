@@ -42,13 +42,8 @@ def blend_prompt(config, output_dir, progress_callback=None):
     #print(output_dir)
     for argument_combination in config.get_parameter_combinations(callback):
 
-        print(argument_combination._filepath)
-        print(argument_combination._prompt_arguments)
-        print(argument_combination._prompt_arguments_masked)
-
         # Join the file path and create the directory if it does not exist.
         filepath = os.path.join(output_dir, argument_combination.filepath)
-        print(filepath)
         os.makedirs(filepath, exist_ok=True)
 
         # Create the prompt file with the expanded arguments.

@@ -19,10 +19,16 @@ class ProgressDialog(wx.Dialog):
         self.task_thread = threading.Thread(target=task)
         self.task_thread.start()
 
+        self.reset_progress()
         self.ShowModal()
 
         print("Task finished")
         
+    def reset_progress(self):
+        self.gauge.SetValue(0)
+        self.gauge.SetRange(0)
+        self.progress_text.SetLabel("0/0")
+        self.description_text.SetLabel("Initializing task...")
 
     def init_ui(self):
         panel = wx.Panel(self)
@@ -41,12 +47,14 @@ class ProgressDialog(wx.Dialog):
         vbox.Add(self.description_text, flag=wx.ALL | wx.LEFT, border=5)
 
         # Botão de cancelar/concluir
-        self.button = wx.Button(panel, label="Cancelar")
-        self.button.Bind(wx.EVT_BUTTON, self.on_cancel)
+        self.button = wx.Button(panel)
         vbox.Add(self.button, flag=wx.ALL | wx.CENTER, border=10)
+        self._update_button()
 
         # When closing the dialog, call the cancel method
         self.Bind(wx.EVT_CLOSE, self.on_cancel)
+
+        self.reset_progress()
 
         panel.SetSizer(vbox)
 
@@ -62,14 +70,23 @@ class ProgressDialog(wx.Dialog):
         self.progress_text.SetLabel(f"{current_value}/{max_value}")
         self.description_text.SetLabel(description)
 
+        self._update_button(current_value, max_value)
+
         if current_value >= max_value:
             if self.auto_close:
                 self.Hide()
                 wx.MessageBox(description, "Task Completed", wx.OK | wx.ICON_INFORMATION)
-            else:
-                self.button.SetLabel("Concluir")
-                self.button.Unbind(wx.EVT_BUTTON)
-                self.button.Bind(wx.EVT_BUTTON, self.on_finish)
+
+    def _update_button(self, current_value=-1, max_value=0):
+        if current_value >= max_value:
+            self.button.SetLabel("Concluir")
+            self.button.Unbind(wx.EVT_BUTTON)
+            self.button.Bind(wx.EVT_BUTTON, self.on_finish)
+        else:
+            self.button.SetLabel("Cancelar")
+            self.button.Unbind(wx.EVT_BUTTON)
+            self.button.Bind(wx.EVT_BUTTON, self.on_cancel)
+
 
 
     def on_cancel(self, event):
@@ -81,7 +98,7 @@ class ProgressDialog(wx.Dialog):
             print("Waiting for thread to finish")
             self.task_thread.join()
 
-        print("Thread finished")
+        print("Thread finished", self.running)
         self.Hide()
 
     def on_finish(self, event):

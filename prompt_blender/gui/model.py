@@ -12,27 +12,30 @@ from prompt_blender.arguments import Config, ParameterCombination
 from importlib.util import spec_from_file_location, module_from_spec
 
 
+FILE_FORMAT_VERSION = "1.0"
+
 class Model:
     # Cores com contraste suficiente para serem usadas no highlight, sobre um fundo branco
     default_colors = [
-        '#FF0000',  # Vermelho
-        '#00FF00',  # Verde
-        '#0000FF',  # Azul
+        '#00AA00',  # Verde
+        '#0030FF',  # Azul
         '#A0A000',  # Amarelo
         '#FF00FF',  # Magenta
         '#00FFFF',  # Ciano
         '#FFA500',  # Laranja
         '#800080',  # Roxo
         '#008000',  # Verde escuro
+        '#404040',  # Cinza escuro
         '#000080',  # Azul escuro
         '#800000',  # Marrom
         '#808000',  # Oliva
         '#008080',  # Verde azulado
+        '#808080',  # Cinza
     ]
 
     def __init__(self, data) -> None:
         # Dictionary that represents the project data
-        self.data = data
+        self.data = Model.migrate(data)
 
         # Dictionary that stores the colors for each variable
         self.variable_colors = {}
@@ -44,45 +47,55 @@ class Model:
         self._file_path = None
 
         # Flag that indicates if the model has been modified since the last save
-        self._is_modified = True  
+        self._is_modified = True
 
         # Set of functions to be called when the model changes state
         self.on_modified_callbacks = set()
 
+    def migrate(data):
+        if "metadata" not in data:
+            return data
+        version = [int(v) for v in data.get("metadata", {}).get(
+            "file_format_version", "0.0").split('.')]
+
+        if version < [1, 0]:
+            if isinstance(data["parameters"], list):
+                data["parameters"] = {
+                    f"Parameter {i}": param for i, param in enumerate(data["parameters"])}
+            if isinstance(data["prompts"], list):
+                data["prompts"] = {f"Prompt {i}": prompt for i,
+                                   prompt in enumerate(data["prompts"])}
+
+        data["metadata"]["file_format_version"] = FILE_FORMAT_VERSION
+        return data
+
     @staticmethod
     def create_from_template():
         data = {
-            "parameters": [
-              [
-                {"_id": "orgao1.txt", "document_text": "Texto representando os termos de confidencialidade do órgão 1."},
-                {"_id": "orgao2.txt", "document_text": "Texto representando os termos de confidencialidade do órgão 2."},
-                {"_id": "orgao3.txt", "document_text": "Texto representando os termos de confidencialidade do órgão 3."}
-              ],
-              [
-                {"criterion": "Finalidade do tratamento dos dados"},
-                {"criterion": "Teste de critério"},
-                {"criterion": "Formação de perfil"},
-                {"criterion": "Exclusão de dados"},
-                {"criterion": "Segurança dos dados"},
-                {"criterion": "Compartilhamento de dados"},
-                {"criterion": "Direitos do titular dos dados"},
-                {"criterion": "Responsabilidade"},
-                {"criterion": "Transferência internacional de conhecimento"},
-                # Mais critérios podem ser adicionados aqui
-              ]
-            ],
-            "prompts": [
-                "Teste de {criterion}.",
-                "Avalie o termo de confidencialidade representado em aspas triplas quanto ao critério '{criterion}'. Descreva como este termo aborda o critério mencionado e forneça uma pontuação de 1 a 10 para a eficácia com que este critério é tratado. Responda no seguinte formato de saída JSON: {{'text': 'Descrição e pontuação para o critério.'}}.\n\n \"\"\"{document_text}\"\"\"",
-                "Avalie o termo de confidencialidade representado em aspas triplas quanto ao critério '{criterion}'. Descreva como este termo aborda o critério mencionado e forneça uma pontuação de 1 a 10 para a eficácia com que este critério é tratado. Responda no seguinte formato de saída JSON: {{'text': '<Justifique a seleção para o critério.>',\n'pontuação': <Pontuação de 1 a 5, conforme a aderência>}}.\n\n \"\"\"{document_text}\"\"\""
-            ]
-        }     
+            "parameters": {
+                "Celsius": [
+                    {"celsius_value": 4},
+                    {"celsius_value": 22},
+                    {"celsius_value": 100}
+                ],
+                "Fahrenheit": [
+                    {"fahrenheit_values": 39.2},
+                    {"fahrenheit_values": 71.6},
+                    {"fahrenheit_values": 212}
+                ]
+            },
+            "prompts": {
+                "Celsius to Fahrenheit": "A temperature of {celsius_value}°C is measured in Celsius.\nThe corresponding Fahrenheit reading was {fahrenheit_values}°F.\nUsing the formula F = (9/5) * C + 32, calculate the expected Fahrenheit value for {celsius_value}°C.\nCompare the calculated Fahrenheit value with the measured value.\n\nProvide the result in the following output JSON format:\n{{\n\t\"calculated_fahrenheit\": <calculated value>,\n\t\"measured_fahrenheit\": <measured value>,\n\t\"difference\": <absolute difference>,\n\t\"match\": <true if they match, else false>\n}}.",
+                "Fahrenheit to Celsius": "A temperature of {fahrenheit_values}°F is measured in Fahrenheit.\nThe corresponding Celsius reading was {celsius_value}°C.\nUsing the formula C = (5/9) * (F - 32), calculate the expected Celsius value for {fahrenheit_values}°F.\nCompare the calculated Celsius value with the original Celsius reading.\n\nProvide the result in the following output JSON format:\n{{\n\t\"calculated_celsius\": <calculated value>,\n\t\"measured_celsius\": <measured value>,\n\t\"difference\": <absolute difference>,\n\t\"match\": <true if they match, else false>\n}}."
+            }
+        }
+
         model = Model(data)
         model.is_modified = False
         return model
 
     @staticmethod
-    def create_from_clipboard():   
+    def create_from_clipboard():
         s = pyperclip.paste()
         data = json.loads(s)
         return Model(data)
@@ -90,8 +103,8 @@ class Model:
     @staticmethod
     def create_empty():
         data = {
-            "parameters": [],
-            "prompts": []
+            "parameters": {},
+            "prompts": {}
         }
         return Model(data)
 
@@ -111,8 +124,13 @@ class Model:
             return False
         metadata = self.data.get("metadata", {})
         # save local time with timezone in isoformat
-        metadata.update({"modified_time": datetime.now().astimezone().isoformat()})
-        metadata.update({'app_version': info.__version__})
+        metadata.update(
+            {"modified_time": datetime.now().astimezone().isoformat()})
+        metadata.update({
+                'app_name': info.APP_NAME,
+                'app_version': info.__version__,
+                'file_format_version': FILE_FORMAT_VERSION
+            })
         self.data["metadata"] = metadata
         with open(file_path, 'w', encoding='utf-8') as file:
             json.dump(self.data, file, ensure_ascii=False, indent=4)
@@ -123,36 +141,102 @@ class Model:
     def to_dict(self):
         return self.data
 
-    def get_prompt(self, prompt_id):
-        return self.data["prompts"][prompt_id]
-    
-    def set_prompt(self, prompt_id, prompt_text):
-        self.data["prompts"][prompt_id] = prompt_text
-        self.is_modified = True
+    def get_prompt(self, prompt_name):
+        return self.data["prompts"][prompt_name]
 
-    def get_interpolated_prompt(self, prompt_id):
-        _, text = self._interpolate(self.data["prompts"][prompt_id], self.get_selected_values())
+    def set_prompt(self, prompt_name, prompt_text):
+        if self.data["prompts"].get(prompt_name) != prompt_text:
+            self.data["prompts"][prompt_name] = prompt_text
+            self.is_modified = True
+
+    def is_prompt_disabled(self, prompt_name):
+        disabled_prompts = self.data.get("disabled_prompts", [])
+        return prompt_name in disabled_prompts
+
+    def set_prompt_disabled(self, prompt_name, disabled):
+        disabled_prompts = self.data.get("disabled_prompts", [])
+        if disabled:
+            if prompt_name not in disabled_prompts:
+                disabled_prompts.append(prompt_name)
+                self.is_modified = True
+        else:
+            if prompt_name in disabled_prompts:
+                disabled_prompts.remove(prompt_name)
+                self.is_modified = True
+        self.data["disabled_prompts"] = disabled_prompts
+
+    def get_interpolated_prompt(self, prompt_name):
+        _, text = self._interpolate(
+            self.data["prompts"][prompt_name], self.get_selected_values())
         return text
+
+    def get_prompt_names(self):
+        return self.data["prompts"].keys()
 
     def get_number_of_prompts(self):
         return len(self.data["prompts"])
-    
-    def add_prompt(self, prompt_text=""):
-        self.data["prompts"].append(prompt_text)
+
+    def get_new_prompt_name(self, prompt_prefix=None):
+        if prompt_prefix is None:
+            prompt_prefix = "New Prompt"
+        prompt_complement = 0
+        prompt_name = prompt_prefix
+        while prompt_name in self.data["prompts"]:
+            prompt_complement += 1
+            prompt_name = f"{prompt_prefix} {prompt_complement}"
+        return prompt_name
+
+    def get_new_param_name(self, param_prefix=None):
+        if param_prefix is None:
+            param_prefix = "New Parameter"
+        param_complement = 0
+        param_name = param_prefix
+        while param_name in self.data["parameters"]:
+            param_complement += 1
+            param_name = f"{param_prefix} {param_complement}"
+        return param_name
+
+    def add_prompt(self, prompt_name=None, prompt_text=""):
+        new_prompt_name = self.get_new_prompt_name(prompt_name)
+        self.data["prompts"][new_prompt_name] = prompt_text
         self.is_modified = True
 
-    def remove_prompt(self, prompt_id):
-        self.data["prompts"].pop(prompt_id)
+        return new_prompt_name
+
+    def remove_prompt(self, prompt_name):
+        self.data["prompts"].pop(prompt_name)
         self.is_modified = True
+
+    def rename_prompt(self, prompt_name, new_name):
+        # Check if the new name already exists
+        if new_name in self.data["prompts"]:
+            return False
+
+        # Use itens to keep dictionary order
+        prompts = list(self.data["prompts"].items())
+        prompt_index = list(self.data["prompts"].keys()).index(prompt_name)
+        prompts[prompt_index] = (new_name, prompts[prompt_index][1])
+        self.data["prompts"] = dict(prompts)
+
+        self.is_modified = True
+
+        # Rename disabled prompt if it exists
+        disabled_prompts = self.data.get("disabled_prompts", [])
+        if prompt_name in disabled_prompts:
+            disabled_prompts.remove(prompt_name)
+            disabled_prompts.append(new_name)
+            self.data["disabled_prompts"] = disabled_prompts
+
+        return True
 
     @property
     def file_path(self):
         return self._file_path
-    
+
     @property
     def is_modified(self):
         return self._is_modified
-    
+
     @file_path.setter
     def file_path(self, value):
         if value != self._file_path:
@@ -175,12 +259,12 @@ class Model:
     @property
     def parameters(self):
         return self.data["parameters"]
-    
+
     def get_selected_values(self):
-        #Obtenha o values de todos os parâmetros selecionados
+        # Obtenha o values de todos os parâmetros selecionados
         values = {}
-        for i, param in enumerate(self.parameters):
-            values.update(param[self.selected_params[i]])
+        for param_name, param in self.parameters.items():
+            values.update(param[self.selected_params[param_name]])
 
         return values
 
@@ -191,69 +275,82 @@ class Model:
         if variable_name in self.variable_colors:
             return self.variable_colors[variable_name]
         else:
-            color = self.default_colors[len(self.variable_colors) % len(self.default_colors)]
+            color = self.default_colors[len(
+                self.variable_colors) % len(self.default_colors)]
             self.variable_colors[variable_name] = color
             return color
 
-    def get_parameter(self, param_id):
-        if param_id < 0 or param_id >= len(self.data["parameters"]):
+    def get_parameter(self, param_name):
+        if param_name not in self.data["parameters"]:
             return None
-        return self.data["parameters"][param_id]
+        return self.data["parameters"][param_name]
 
-    def set_selected_item(self, param_id, selected_row):
-        self.selected_params[param_id] = selected_row
+    def get_first_parameter(self):
+        if self.data["parameters"]:
+            # First element from dict_keys from data["parameters"]
+            return self.data["parameters"].keys().__iter__().__next__()
+        else:
+            return None
 
-    def get_selected_item(self, param_id):
-        return self.selected_params[param_id]
-    
-    def add_param(self, param):
+    def set_selected_item(self, param_name, selected_row):
+        self.selected_params[param_name] = selected_row
+
+    def get_selected_item(self, param_name):
+        return self.selected_params[param_name]
+
+    def add_param(self, param_name, param):
         if param:
-            self.data["parameters"].append(param)
+            new_param_name = self.get_new_param_name(param_name)
+            self.data["parameters"][new_param_name] = param
             self.is_modified = True
 
-    def remove_param(self, param_id):
-        self.data["parameters"].pop(param_id)
+    def remove_param(self, param_name):
+        self.data["parameters"].pop(param_name)
         self.is_modified = True
 
-    def remove_param_key(self, param_id, key):
-        param = self.get_parameter(param_id)
+    def remove_param_key(self, param_name, key):
+        param = self.get_parameter(param_name)
         if param:
             for row in param:
                 row.pop(key, None)
-                
+
             # Remove all registers that have no keys
-            self.data["parameters"][param_id] = [row for row in param if row]
-            
+            self.data["parameters"][param_name] = [row for row in param if row]
+
             self.is_modified = True
 
-    def move_param(self, param_id, direction: int):
-        new_param_id = param_id + direction
-        # direction can be -1 or 1
-        if 0 <= new_param_id < len(self.data["parameters"]):
-            # Swap the parameters positions
-            self.data["parameters"][param_id], self.data["parameters"][param_id + direction] = self.data["parameters"][param_id + direction], self.data["parameters"][param_id]
+    def move_param(self, param_name, direction: int):
+        param_index = list(self.data["parameters"].keys()).index(param_name)
+        swap_index = param_index + direction
+        p0, p1 = min(param_index, swap_index), max(param_index, swap_index)
+        if 0 <= swap_index < len(self.data["parameters"]):
+            items = list(self.data["parameters"].items())
+            self.data["parameters"] = dict(
+                items[:p0] +
+                [items[p1]] +
+                [items[p0]] +
+                items[p1+1:]
+            )
             self.is_modified = True
-            return new_param_id
-        else:
-            return param_id
-        
-    def add_param_directory(self, directory_path):
+
+    def add_table_from_directory(self, directory_path):
         param = []
         for file in os.listdir(directory_path):
             if file.endswith(".txt"):
                 f = os.path.join(directory_path, file)
-                param.append({'_id': file, 'document_text': Path(f).read_text()})
-        self.add_param(param)     
+                param.append(
+                    {'_id': file, 'document_text': Path(f).read_text()})
+        self.add_param(param, variable='dir')
 
-    def add_param_content(self, content, extension):
+    def add_table_from_string(self, content, extension):
         # Create system temporary file
         with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix=f'.{extension}') as file:
             file.write(content)
             file.close()
             file_path = file.name
-            self.add_param_file(file_path, variable='value')
+            self.add_table_from_file(file_path, variable='value')
 
-    def add_param_file(self, file_path, encoding='utf-8', variable=None):
+    def add_table_from_file(self, file_path, encoding='utf-8', variable=None):
         _variable, extension = os.path.basename(file_path).split('.')
         extension = extension.lower()
         if variable is None:
@@ -279,7 +376,8 @@ class Model:
                 param = json.load(file)
             # Check if the json is a list of dictionaries
             if not isinstance(param, list) or not all(isinstance(x, dict) for x in param):
-                raise ValueError("JSON file must contain a list of dictionaries")
+                raise ValueError(
+                    "JSON file must contain a list of dictionaries")
         elif extension in ('py',):
             spec = spec_from_file_location("", file_path)
             module = module_from_spec(spec)
@@ -287,15 +385,16 @@ class Model:
             if hasattr(module, 'generate'):
                 param = module.generate()
             else:
-                raise ValueError("The module must contain a 'generate'function")
-        
-        print(len(param))
-        if len(param) > 1000:
-            raise ValueError("The file contains more than 1000 rows. Please, reduce the number of rows to load.")
-        self.add_param(param)     
+                raise ValueError(
+                    "The module must contain a 'generate'function")
 
-    def apply_transform(self, param_id, transform_file):
-        param = self.get_parameter(param_id)
+        if len(param) > 1000:
+            raise ValueError(
+                "The file contains more than 1000 rows. Please, reduce the number of rows to load.")
+        self.add_param(variable, param)
+
+    def apply_transform(self, param_name, transform_file):
+        param = self.get_parameter(param_name)
         if param:
             spec = spec_from_file_location("", transform_file)
             module = module_from_spec(spec)
@@ -304,31 +403,53 @@ class Model:
                 for i, row in enumerate(param):
                     param[i].update(module.apply_transform(row))
             else:
-                raise ValueError("The module must contain a 'apply_transform' function")
+                raise ValueError(
+                    "The module must contain a 'apply_transform' function")
 
-    def truncate_param(self, param_id, max_rows):
-        param = self.get_parameter(param_id)
+    def truncate_param(self, param_name, max_rows):
+        param = self.get_parameter(param_name)
         if param:
-            self.data["parameters"][param_id] = param[:max_rows]
+            self.data["parameters"][param_name] = param[:max_rows]
             self.is_modified = True
 
-    def rename_param_key(self, param_id, old_key, new_key):
-        param = self.get_parameter(param_id)
+    def remove_duplicates(self, param_name):
+        param = self.get_parameter(param_name)
+        if param:
+            # PAram is a list of dictionaries
+            without_duplicates = [dict(t)
+                                  for t in {tuple(d.items()) for d in param}]
+            if len(without_duplicates) < len(param):
+                self.data["parameters"][param_name] = without_duplicates
+                self.is_modified = True
+
+    def rename_variable(self, param_name, old_key, new_key):
+        param = self.get_parameter(param_name)
         if param:
             for row in param:
                 row[new_key] = row.pop(old_key)
                 # change color
                 if old_key in self.variable_colors:
-                    self.variable_colors[new_key] = self.variable_colors.pop(old_key)
+                    self.variable_colors[new_key] = self.variable_colors.pop(
+                        old_key)
             self.is_modified = True
 
-    def get_hightlight_positions(self, prompt_id, interpolated):
+    def rename_table(self, param_name, new_name):
+        # Rename self.data["parameters"][new_name] but keep the same key order
+        key_index = list(self.data["parameters"].keys()).index(param_name)
+        self.data["parameters"] = dict(
+            list(self.data["parameters"].items())[:key_index] +
+            [(new_name, self.data["parameters"][param_name])] +
+            list(self.data["parameters"].items())[key_index+1:])
+        self.is_modified = True
+
+    def get_hightlight_positions(self, prompt_name, interpolated):
         if interpolated:
             values = self.get_selected_values()
         else:
             values = None
 
-        tag_positions, _ = self._interpolate(self.data["prompts"][prompt_id], values)
+        tag_positions, _ = self._interpolate(
+            self.data["prompts"][prompt_name], values)
         return tag_positions
 
     def _interpolate(self, text, values):
@@ -341,21 +462,25 @@ class Model:
             start = match.start() + offset
             end = match.end() + offset
             if values:
-                value = values.get(var_name, f"[!! Missing Variable: {var_name} !!]")
+                value = str(values.get(
+                    var_name, f"[!! Missing Variable: {var_name} !!]"))
                 new_text = new_text[:start] + value + new_text[end:]
                 offset += len(value) - (end - start)
                 end = start + len(value)
-                print(f"Substituindo {var_name} por {value} na posição {start} até {end} (offset {offset})")
+                print(
+                    f"Substituindo {var_name} por {value} na posição {start} até {end} (offset {offset})")
 
             # Salvando as posições para aplicar a coloração
             tag_positions.append((var_name, start, end))
 
         return tag_positions, new_text
-    
-    def get_result(self, prompt_id, output_dir, result_name):
+
+    def get_result(self, prompt_name, output_dir, result_name):
         config = Config.load_from_dict(self.data)
-        combination = config.get_parameter_combination(prompt_id, self.get_selected_values())
-        result_file = os.path.join(output_dir, combination.get_result_file(result_name))
+        combination = config.get_parameter_combination(
+            prompt_name, self.get_selected_values())
+        result_file = os.path.join(
+            output_dir, combination.get_result_file(result_name))
         if os.path.exists(result_file):
             with open(result_file, 'r') as file:
                 return file.read()

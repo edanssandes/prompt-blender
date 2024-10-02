@@ -31,6 +31,9 @@ def load_modules(paths):
         if not hasattr(module, 'module_info'):
             module.module_info = {'name': module_name, 'description': 'No description available'}
 
+        if not 'version' in module.module_info:
+            module.module_info['version'] = ''
+
         modules[module_name] = module
 
     return modules
@@ -52,6 +55,11 @@ def execute_llm(llm_module, module_args, config, output_dir, result_name, cache_
     if module_args is None:
         module_args = {}
 
+    if progress_callback:
+        progress_callback(0, 0, description="Loading LLM module...")
+
+    time.sleep(0.75)  # This allows the animation to be shown in the GUI for executions that are too fast (e.g. full cache hits)
+
     llm_module.exec_init()
 
     total_cost = 0
@@ -61,7 +69,7 @@ def execute_llm(llm_module, module_args, config, output_dir, result_name, cache_
             over_budget = False
 
             if i == num_combinations:
-                description = 'Execution done'
+                description = 'Finishing up...'
             else:
                 description = f"Execution Cost: ${total_cost:.2f}/{max_cost:.2f}"
 
@@ -76,7 +84,6 @@ def execute_llm(llm_module, module_args, config, output_dir, result_name, cache_
 
             keep_running = progress_callback(i, num_combinations, description=description)
             x = keep_running and (not over_budget)
-            print(x)
             return x
         else:
             return True
@@ -135,11 +142,13 @@ def _execute_inner(llm_module, module_args, output_dir, result_name, cache_timeo
             'params': argument_combination._prompt_arguments_masked,
             'prompt': prompt_content,
             'module_name': llm_module.__name__,
+            'module_version': llm_module.module_info.get('version', ''),
             'module_args': module_args_public,
             'response': response['response'],
             'cost': response.get('cost', None),
             'elapsed_time': t1 - t0,
             'timestamp': timestamp,
+            'app_name': info.APP_NAME,
             'app_version': info.__version__,
         }
     with open(result_file, 'w') as file:

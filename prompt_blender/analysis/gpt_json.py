@@ -9,7 +9,6 @@ analyse_info = {
 
 def analyse(response):
     analysis = []
-    print(response)
 
     for choice in response['choices']:
         content = choice['message']['content']

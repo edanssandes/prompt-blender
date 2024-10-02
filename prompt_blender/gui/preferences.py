@@ -6,11 +6,14 @@ import wx
 import json
 from prompt_blender import info
 
+PREFERENCE_FILE_VERSION = "1.0"
+
 class Preferences():
     def __init__(self):
         self._preferences = {
             'app_name': info.APP_NAME,
-            '__version__': info.__version__,
+            'app_version': info.__version__,
+            'preference_file_version': PREFERENCE_FILE_VERSION,
             'cache_dir': os.path.join(os.path.expanduser("~"), ".prompt_blender"),
             'max_combinations': 1024,
             'max_cost': 1.50,
@@ -32,9 +35,9 @@ class Preferences():
             preference_data = json.load(f)
 
         # Verify version
-        config_version = preference_data.get('__version__', None)
-        if config_version != info.__version__:
-            print(f"Warning: Preferences file version is different from the current version ({config_version}!={info.__version__}). Using default preferences.")
+        preference_file_version = preference_data.get('preference_file_version', None)
+        if preference_file_version != PREFERENCE_FILE_VERSION:
+            print(f"Warning: Preferences file version is different from the current version ({preference_file_version}!={PREFERENCE_FILE_VERSION}). Using default preferences.")
         else:
             # Sanity check
             if 'cache_dir' not in preference_data or not preference_data['cache_dir']:
@@ -56,7 +59,7 @@ class Preferences():
     def save_to_file(self, filename):
         print("Saving preferences to file: ", filename)
         with open(filename, 'w', encoding='utf-8') as f:
-            json.dump(self._preferences, f)
+            json.dump(self._preferences, f, indent=4)
 
     @property
     def cache_dir(self):

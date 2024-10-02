@@ -19,7 +19,7 @@ requires-python = ">=3.8"
 authors = [
   {name = "Edans Sandes"},
 ]
-description = "Tool designed to automate the generation, execution, and analysis of prompts for use in language learning models (LLMs). It simplifies the task of creating multiple prompts by automatically filling parameters within a template, generating a Cartesian product of prompts, and analyzing the results returned by the model's API."
+description = "Tool designed to automate the generation, execution, and analysis of prompts for use in language learning models (LLMs). It simplifies the task of creating multiple prompts by automatically filling variables within a template, generating a Cartesian product of prompts, and analyzing the results returned by the model's API."
 readme = "README.md"
 license = {file = "LICENSE"}
 keywords = ["llm", "gpt", "prompt", "cross product", "automation"]

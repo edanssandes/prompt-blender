@@ -55,9 +55,8 @@ def analyse_results(config, output_dir, result_name, analyse_functions):
 
     combinations = config.get_parameter_combinations()
     for argument_combination in combinations:
-        prompt_file = os.path.join(output_dir, argument_combination.prompt_file)
+        #prompt_file = os.path.join(output_dir, argument_combination.prompt_file)
         result_file = os.path.join(output_dir, argument_combination.get_result_file(result_name))
-        print(result_file)
 
         if os.path.isfile(result_file):
             with open(result_file, 'r') as file:
@@ -75,7 +74,6 @@ def analyse_results(config, output_dir, result_name, analyse_functions):
     analysis_dir = os.path.join(output_dir, 'analysis')
     os.makedirs(analysis_dir, exist_ok=True)
 
-    print("HEY", analyse_functions)
     analysis_results = {}
     for module_name, analyse_function in analyse_functions.items():
         print(f'Analysing with {module_name}')
@@ -85,11 +83,9 @@ def analyse_results(config, output_dir, result_name, analyse_functions):
             result_file = os.path.join(output_dir, argument_combination.get_result_file(result_name))
             #base_dir = os.path.join(output_dir, argument_combination.filepath)
             #result_file = os.path.join(base_dir, 'result_gpt.json')
-            print(result_file)
 
             #base_dir = os.path.join(output_dir, *argument_combination._filepath)
             #result_file = os.path.join(base_dir, 'result_gpt.json')
-            print(result_file)
             if not os.path.isfile(result_file):
                 continue
 
@@ -103,7 +99,7 @@ def analyse_results(config, output_dir, result_name, analyse_functions):
                     if not isinstance(r, list):
                         r = [r]
                     for x in r:
-                        x.update({f'input: {k}':v for k,v in argument_combination._prompt_arguments_masked.items()})
+                        x.update({f'input_{k}':v for k,v in argument_combination._prompt_arguments_masked.items()})
                     analysis += r
 
         #print(analysis)

@@ -81,8 +81,6 @@ elif args.job_dir:
 else:
     config = Config.load_from_parameters(output_dir)
 
-print(config.json)
-
 
 print('Generating prompts...', end='')
 output_files = blend_prompt(config, output_dir)

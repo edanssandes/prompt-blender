@@ -52,7 +52,8 @@ class ExecuteDialog(wx.Dialog):
      
 
         # Combo Box with modules. Closed list. Cannot focus text box.
-        self.combo = wx.Choice(self.panel, choices=[llm_module.module_info['name'] for llm_module in self.available_models.values()])
+        self.combo = wx.Choice(self.panel, choices=[self.get_module_label(llm_module) for llm_module in self.available_models.values()])
+            
         # Set different values
 
         grid.Add(wx.StaticText(self.panel, label="Module:"), flag=wx.ALL | wx.ALIGN_CENTER_VERTICAL, border=5)
@@ -118,6 +119,13 @@ class ExecuteDialog(wx.Dialog):
         # Remove focus from the combo box
         self.parameters_panel.SetFocus()
         
+    def get_module_label(self, llm_module):
+        name = llm_module.module_info['name']
+        version = llm_module.module_info.get('version', '')
+        if version:
+            version = f" - v{version}"
+        return f"{name}{version}"
+
     def populate_parameters_panel(self):
 
         # Remove the current panel from the parameters_panel
