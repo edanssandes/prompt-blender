@@ -5,7 +5,7 @@ client = None
 
 def exec_init():
     global client
-    client = OpenAI()
+    client = OpenAI(api_key="")
 
 def get_args(args=None):
     if args is not None:
@@ -33,7 +33,7 @@ def get_args(args=None):
 def exec(prompt, gpt_model, gpt_args, gpt_json, _api_key):
     messages = []
     messages.append({"role": "user", "content": prompt})
-    client.api_key = _api_key
+    client.api_key = _api_key or '<null key>'
 
     if gpt_json:
         gpt_args['response_format'] = { "type": "json_object" }
