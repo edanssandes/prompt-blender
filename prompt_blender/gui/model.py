@@ -14,6 +14,12 @@ from importlib.util import spec_from_file_location, module_from_spec
 
 FILE_FORMAT_VERSION = "1.0"
 
+class CustomEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+        return super(CustomEncoder, self).default(obj)
+
 class Model:
     # Cores com contraste suficiente para serem usadas no highlight, sobre um fundo branco
     default_colors = [
@@ -133,7 +139,7 @@ class Model:
             })
         self.data["metadata"] = metadata
         with open(file_path, 'w', encoding='utf-8') as file:
-            json.dump(self.data, file, ensure_ascii=False, indent=4)
+            json.dump(self.data, file, ensure_ascii=False, indent=4, cls=CustomEncoder)
         self.file_path = file_path
         self.is_modified = False
         return True
