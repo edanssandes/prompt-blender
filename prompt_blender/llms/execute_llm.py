@@ -2,6 +2,7 @@ import json
 import os
 import time
 import importlib.util
+from datetime import datetime
 
 from prompt_blender import info
 
@@ -102,6 +103,11 @@ def execute_llm(llm_module, module_args, config, output_dir, result_name, cache_
 
     return max_timestamp
 
+def default_converter(o):
+    if isinstance(o, datetime):
+        return o.isoformat()
+    raise TypeError(f"Object of type {o.__class__.__name__} is not JSON serializable")
+
 def _execute_inner(llm_module, module_args, output_dir, result_name, cache_timeout, argument_combination):
     prompt_file = os.path.join(output_dir, argument_combination.prompt_file)
     result_file = os.path.join(output_dir, argument_combination.get_result_file(result_name))
@@ -151,7 +157,10 @@ def _execute_inner(llm_module, module_args, output_dir, result_name, cache_timeo
             'app_name': info.APP_NAME,
             'app_version': info.__version__,
         }
-    with open(result_file, 'w') as file:
-        json.dump(output, file)
+    try:
+        with open(result_file, 'w') as file:
+            json.dump(output, file, default=default_converter, ensure_ascii=False, indent=4)
+    except TypeError as e:
+        print(f"Error serializing JSON: {e}")
 
     return output
