@@ -84,6 +84,7 @@ class ExecuteDialog(wx.Dialog):
 
             print("Selected: ", self.selected_module)
 
+
         # bind
         self.combo.Bind(wx.EVT_CHOICE, on_combo)
 
@@ -127,10 +128,13 @@ class ExecuteDialog(wx.Dialog):
         return f"{name}{version}"
 
     def populate_parameters_panel(self):
-
         # Remove the current panel from the parameters_panel
         for child in self.parameters_panel.GetChildren():
             child.Destroy()
+            
+        # Necessary to update the size of the panel, otherwise the new panel may not fit correctly            
+        self.panel.GetSizer().Fit(self)  
+        
 
         # Create a new panel on the existing parameters_panel to show content
         module = self.available_models[self.selected_module]

@@ -972,10 +972,8 @@ class MainFrame(wx.Frame):
         elif self.interrupted:
             wx.MessageBox("Interrupted Excecution", "Interruption", wx.OK | wx.ICON_INFORMATION)
         else:
-            wx.MessageBox("LLM Execution succesful", "Sucesso", wx.OK | wx.ICON_INFORMATION)
+            wx.MessageBox("LLM Execution successful", "Success", wx.OK | wx.ICON_INFORMATION)
             self.export_results()
-
-
 
 
     def export_results(self):

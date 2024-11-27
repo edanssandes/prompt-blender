@@ -340,7 +340,7 @@ class Model:
                 f = os.path.join(directory_path, file)
                 param.append(
                     {'_id': file, 'document_text': Path(f).read_text()})
-        self.add_param(param, variable='dir')
+        self.add_param('dir', param)
 
     def add_table_from_string(self, content, extension):
         # Create system temporary file

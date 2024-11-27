@@ -33,6 +33,10 @@ def analyse(response):
     elif response['model'] == 'gpt-4o-mini-2024-07-18':
         cost_in = 0.15
         cost_out = 0.60
+    else:
+        cost_in = 0.00
+        cost_out = 0.00
+        print(response['model'])
         
     total_cost_in = tokens_in/1000000*cost_in
     total_cost_out = tokens_out/1000000*cost_out
