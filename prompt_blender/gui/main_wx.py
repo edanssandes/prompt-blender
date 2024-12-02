@@ -27,6 +27,7 @@ import json
 import io
 import zipfile
 import shutil
+from datetime import datetime
 
 
 PROJECT_FILE_EXTENSION = "pbp"
@@ -876,6 +877,11 @@ class MainFrame(wx.Frame):
         output_dir = self.preferences.cache_dir
         blend_prompt(config, output_dir, self.progress_dialog.update_progress)
 
+    def default_converter(o):
+        if isinstance(o, datetime):
+            return o.isoformat()
+        raise TypeError(f"Object of type {o.__class__.__name__} is not JSON serializable")
+
 
     def task_all(self):
         llm_module = self.execute_dialog.get_selected_module()
@@ -935,8 +941,8 @@ class MainFrame(wx.Frame):
 
 
             # Add the config file to the zip
-            zipf.writestr('config.json', json.dumps(config.json))
-            zipf.writestr('execution.json', json.dumps({'module': llm_module.__name__, 'args': module_args_public}))
+            zipf.writestr('config.json', json.dumps(config.json, default=self.default_converter))
+            zipf.writestr('execution.json', json.dumps({'module': llm_module.__name__, 'args': module_args_public}, default=self.default_converter))
 
             # This set keeps track of the result files that are already in the zip
             result_files = set()
