@@ -59,7 +59,7 @@ def analyse_results(config, output_dir, result_name, analyse_functions):
         result_file = os.path.join(output_dir, argument_combination.get_result_file(result_name))
 
         if os.path.isfile(result_file):
-            with open(result_file, 'r') as file:
+            with open(result_file, 'r', encoding='utf-8') as file:
                 output = json.load(file)
 
                 elapsed_time += output['elapsed_time']
@@ -89,7 +89,7 @@ def analyse_results(config, output_dir, result_name, analyse_functions):
             if not os.path.isfile(result_file):
                 continue
 
-            with open(result_file, 'r') as file:
+            with open(result_file, 'r', encoding='utf-8') as file:
                 output = json.load(file)
 
                 response = output['response']

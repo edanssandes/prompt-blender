@@ -339,7 +339,7 @@ class Model:
             if file.endswith(".txt"):
                 f = os.path.join(directory_path, file)
                 param.append(
-                    {'_id': file, 'document_text': Path(f).read_text()})
+                    {'_id': file, 'document_text': Path(f).read_text(encoding="utf-8")})
         self.add_param('dir', param)
 
     def add_table_from_string(self, content, extension):
@@ -482,7 +482,7 @@ class Model:
         result_file = os.path.join(
             output_dir, combination.get_result_file(result_name))
         if os.path.exists(result_file):
-            with open(result_file, 'r') as file:
+            with open(result_file, 'r', encoding='utf-8') as file:
                 return file.read()
         else:
             return None

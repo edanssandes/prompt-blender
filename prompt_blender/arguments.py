@@ -28,7 +28,7 @@ class Config:
 
         prompt_contents = []
         for prompt_file in prompt_files:
-            with open(prompt_file, 'r') as file:
+            with open(prompt_file, 'r', encoding='utf-8') as file:
                 prompt_content = file.read()
                 prompt_contents.append(prompt_content)
 
@@ -48,7 +48,7 @@ class Config:
 
     @staticmethod
     def load_from_json(json_file: str):
-        with open(json_file, 'r') as file:
+        with open(json_file, 'r', encoding='utf-8') as file:
             data = json.load(file)
 
         config = Config.load_from_dict(data)
@@ -216,7 +216,7 @@ def _get_data_from_file(argument_file: str) -> list:
     Returns:
         list: A list of dictionaries containing the argument values.
     """
-    with open(argument_file, 'r') as file:
+    with open(argument_file, 'r', encoding='utf-8') as file:
         data = [x.strip() for x in file.readlines()] # read data stripping \n
 
     argument_name = Path(argument_file).stem
@@ -276,7 +276,7 @@ def _get_data_from_directory(argument_file: str) -> list:
     data = [
         {
             '_id': f,
-            argument_name: Path(argument_file, f).read_text()
+            argument_name: Path(argument_file, f).read_text(encoding="utf-8")
         }
         for f in os.listdir(argument_file)
         if not f.startswith('_')

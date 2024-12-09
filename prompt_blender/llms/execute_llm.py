@@ -105,7 +105,7 @@ def execute_llm(llm_module, module_args, config, output_dir, result_name, cache_
 def _execute_inner(llm_module, module_args, output_dir, result_name, cache_timeout, argument_combination):
     prompt_file = os.path.join(output_dir, argument_combination.prompt_file)
     result_file = os.path.join(output_dir, argument_combination.get_result_file(result_name))
-    with open(prompt_file, 'r') as file:
+    with open(prompt_file, 'r', encoding='utf-8') as file:
         prompt_content = file.read()
 
     if cache_timeout is None:
@@ -116,7 +116,7 @@ def _execute_inner(llm_module, module_args, output_dir, result_name, cache_timeo
 
         if cache_age < cache_timeout:
             # Read the result file
-            with open(result_file, 'r') as file:
+            with open(result_file, 'r', encoding='utf-8') as file:
                 output = json.load(file)
 
             # Check if the prompt file is the same
@@ -151,7 +151,7 @@ def _execute_inner(llm_module, module_args, output_dir, result_name, cache_timeo
             'app_name': info.APP_NAME,
             'app_version': info.__version__,
         }
-    with open(result_file, 'w') as file:
+    with open(result_file, 'w', encoding='utf-8') as file:
         json.dump(output, file)
 
     return output
