@@ -8,10 +8,10 @@ PromptBlender is a GUI tool designed to automate the generation, execution, and 
 
 - **Template-based Prompt Generation**: Easily create prompt templates and let PromptBlender automatically fill in the variables for you.
 - **Automatic Parameter Combination**: Generates a cartesian product of given variables to explore a wide range of prompt possibilities.
-- **Various data formats**: Supports spreedsheet formats (xlsx, xlsx, csv) and json/jsonl formats for loading variables data.
-- **API Integration**: Sends generated prompts to LLM APIs for execution (currently only supports ChatGPT).
+- **Various data formats**: Supports many formats for loading variables data: spreedsheet (xlsx, xlsx, csv), json/jsonl, plain text, documents (pdf, docx). There is no OCR suport yet.
+- **API Integration**: Sends generated prompts to LLM APIs for execution (currently OpenAI/ChatGPT and Groq Cloud models).
 - **Plugins**: Support customized plugin for integration with other APIs, LLM aplications or web Interfaces.
-- **Results Analysis and Consolidation**: Analyzes responses from LLMs, providing insights and consolidating the data for easy review.
+- **Results Analysis and Consolidation**: Analyzes responses from LLMs, providing insights and consolidating the data in spreedsheet for easy review.
 - **Budget limit**: Allows setting a budget limit to prevent excessive usage.
 - **Exporting results**: Saves execution results for historical tracking logs or for sharing purposes.
 
@@ -21,7 +21,7 @@ PromptBlender is a GUI tool designed to automate the generation, execution, and 
 ### Prerequisites
 
 - Python 3.8 or later.
-- Access to LLM APIs (currently only OpenAI's ChatGPT is supported).
+- Access to LLM APIs (currently only OpenAI's ChatGPT and Groq Cloud is supported).
 
 ### Anaconda Environment (optional)
 
