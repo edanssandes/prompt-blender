@@ -51,7 +51,7 @@ def blend_prompt(config, output_dir, progress_callback=None):
 
 
         # Write the prompt content to the file.
-        with open(filename, 'w') as file:
+        with open(filename, 'w', encoding='utf-8') as file:
             prompt_content = argument_combination.prompt_content
             file.write(prompt_content)
 

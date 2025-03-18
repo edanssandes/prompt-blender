@@ -98,6 +98,15 @@ def analyse_results(config, output_dir, result_name, analyse_functions):
                 if r is not None:
                     if not isinstance(r, list):
                         r = [r]
+                    # Check if every item in the list has a strict format like {"respose": <list of dictionaries>}
+                    if all(isinstance(x, dict) for x in r) and all(len(x) == 1 for x in r):
+                        # possible keys
+                        possible_keys = {"response", "list", "data", "result", "results", "output"}
+
+                        # Check if the key is in the dictionary and the value is a list in every item
+                        if all(list(x.keys())[0] in possible_keys and isinstance(list(x.values())[0], list) for x in r):
+                            r = [y for x in r for y in list(x.values())[0]]
+
                     for x in r:
                         x.update({f'input_{k}':v for k,v in argument_combination._prompt_arguments_masked.items()})
                     analysis += r

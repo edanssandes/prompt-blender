@@ -492,7 +492,11 @@ class MainFrame(wx.Frame):
         dialog = wx.DirDialog(self, "Selecione um diretório")
         if dialog.ShowModal() == wx.ID_OK:
             path = dialog.GetPath()
-            self.data.add_table_from_directory(path)
+
+            options = {}
+            options['encoding'] = self.ask_encoding()
+
+            self.data.add_table_from_directory(path, **options)
             self.populate_data()
 
     def add_table_from_file(self):
@@ -501,14 +505,38 @@ class MainFrame(wx.Frame):
 
         # Apresentar caixa de dialogo,
         dialog = wx.FileDialog(self, "Selecione um arquivo", wildcard=wildcards, style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST | wx.FD_MULTIPLE)
+
         if dialog.ShowModal() == wx.ID_OK:
             try:
                 paths = dialog.GetPaths()
+
+                options = {}
+
+                # if there is any csv or txt file, ask for encoding
+                if any(path.endswith(".csv") or path.endswith(".txt") for path in paths):
+                    options['encoding'] = self.ask_encoding()
+
                 for path in paths:
-                    self.data.add_table_from_file(path)
+                    self.data.add_table_from_file(path, **options)
                 self.populate_data()
             except ValueError as e:
                 wx.MessageBox(f"Error: {e}", "Error", wx.OK | wx.ICON_ERROR)
+
+    def ask_encoding(self):
+        # Show combobox with most common encodings
+        encodings = ["utf-8", "latin1", "windows-1252", "utf-16", "utf-32", "ascii"] 
+        encodings.sort()
+        default_encoding = "utf-8"
+
+        # dialog with choice/combobox with encoding. User can set a custom encoding
+        dialog = wx.SingleChoiceDialog(self, "Select the file encoding", "File Encoding", encodings, 
+                                       style=wx.CHOICEDLG_STYLE)
+        dialog.SetSelection(encodings.index(default_encoding))
+        if dialog.ShowModal() == wx.ID_OK:
+            return dialog.GetStringSelection()
+
+
+
 
     def add_table_from_list(self):
         # Show a dialog to enter text in multiline mode

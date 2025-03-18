@@ -27,3 +27,5 @@ tqdm==4.67.1
 typing_extensions==4.12.2
 tzdata==2024.2
 wxPython==4.2.1
+PyPDF2==3.0.1
+docx2txt==0.8

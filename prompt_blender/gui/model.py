@@ -10,7 +10,8 @@ from datetime import datetime
 from prompt_blender import info
 from prompt_blender.arguments import Config, ParameterCombination
 from importlib.util import spec_from_file_location, module_from_spec
-
+import docx2txt
+from PyPDF2 import PdfReader
 
 FILE_FORMAT_VERSION = "1.0"
 
@@ -333,14 +334,42 @@ class Model:
             )
             self.is_modified = True
 
-    def add_table_from_directory(self, directory_path):
+    def add_table_from_directory(self, directory_path, encoding='utf-8', split_length=8000000):
         param = []
         for file in os.listdir(directory_path):
-            if file.endswith(".txt"):
-                f = os.path.join(directory_path, file)
-                param.append(
-                    {'_id': file, 'document_text': Path(f).read_text(encoding="utf-8")})
+            file_lower = file.lower()
+            f = os.path.join(directory_path, file)
+            text = None
+            if file_lower.endswith(".txt"):
+                text = Path(f).read_text(encoding=encoding)
+            elif file_lower.endswith(".pdf"):
+                text = self.convert_pdf_to_txt(f)
+            elif file_lower.endswith(".docx"):
+                text = self.convert_docx_to_txt(f)
+
+            if text is not None:
+                if len(text) > split_length:
+                    # Split text into chunks
+                    chunks = [text[i:i+split_length]
+                              for i in range(0, len(text), split_length)]
+                    for i, chunk in enumerate(chunks):
+                        param.append(
+                            {'_id': f"{file}_part_{i:03}", 'document_text': chunk})
+                else:
+                    param.append(
+                        {'_id': file, 'document_text': text})
         self.add_param('dir', param)
+
+    def convert_docx_to_txt(self, input_path):
+        text = docx2txt.process(input_path)
+        return text
+
+    def convert_pdf_to_txt(self, input_path):
+        reader = PdfReader(input_path)
+        text = ''
+        for page in reader.pages:
+            text += page.extract_text()
+        return text
 
     def add_table_from_string(self, content, extension):
         # Create system temporary file
@@ -350,7 +379,7 @@ class Model:
             file_path = file.name
             self.add_table_from_file(file_path, variable='value')
 
-    def add_table_from_file(self, file_path, encoding='utf-8', variable=None):
+    def add_table_from_file(self, file_path, encoding='utf-8', variable=None, separator=','):
         _variable, extension = os.path.basename(file_path).split('.')
         extension = extension.lower()
         if variable is None:
@@ -361,7 +390,7 @@ class Model:
             param = df.to_dict(orient='records')
         elif extension in ('csv',):
             # read csv - all strings
-            df = pd.read_csv(file_path, encoding=encoding, dtype=str)
+            df = pd.read_csv(file_path, encoding=encoding, sep=separator, dtype=str)
             param = df.to_dict(orient='records')
         elif extension in ('txt',):
             with open(file_path, 'r', encoding=encoding) as file:
