@@ -129,6 +129,7 @@ def _execute_inner(llm_module, module_args, output_dir, result_name, cache_timeo
 
     print(f'{prompt_file}: processing')
     t0 = time.time()
+    module_args = dict(module_args)  # Make a copy of the module arguments to avoid modifying the original
     response = llm_module.exec(prompt_content, **module_args)
     t1 = time.time()
     #timestamp = pd.Timestamp.now().strftime("%Y%m%d%H%M%S")

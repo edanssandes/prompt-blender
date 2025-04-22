@@ -38,6 +38,23 @@ def exec(prompt, gpt_model, gpt_args, gpt_json, _api_key):
     if gpt_json:
         gpt_args['response_format'] = { "type": "json_object" }
 
+    if '-search' in gpt_model:
+        gpt_args['web_search_options'] = {
+            'user_location': {
+                'type': "approximate",
+                'approximate': {
+                    'country': "BR"
+                },
+            },            
+        }
+        print(f"Using web search for {gpt_model}")
+        if 'temperature' in gpt_args:
+            del gpt_args['temperature']
+        if 'n' in gpt_args:
+            del gpt_args['n']
+        if 'response_format' in gpt_args:
+            del gpt_args['response_format']
+
     response = client.chat.completions.create(
         model=gpt_model,
         messages=messages,
@@ -81,6 +98,18 @@ def get_cost(response):  # FIXME duplicated code
     elif response['model'] == 'gpt-4o-mini-2024-07-18':
         cost_in = 0.15
         cost_out = 0.60
+    elif response['model'] == 'gpt-4o-mini-search-preview':
+        cost_in = 0.15
+        cost_out = 0.60 
+    elif response['model'] == 'gpt-4.1-nano':
+        cost_in = 0.10
+        cost_out = 0.025
+    elif response['model'] == 'gpt-4.1-mini':
+        cost_in = 0.40
+        cost_out = 0.10
+    else:
+        cost_in = 0
+        cost_out = 0
         
     total_cost_in = tokens_in/1000000*cost_in
     total_cost_out = tokens_out/1000000*cost_out
@@ -114,7 +143,7 @@ class ConfigPanel(wx.Panel):
         # Model name combo box
         self.model_label = wx.StaticText(self, label="Model Name:")
         vbox.Add(self.model_label, flag=wx.LEFT | wx.TOP, border=5)
-        model_choices = ["gpt-4o-mini", "gpt-4o", "gpt-4-turbo", "gpt-3.5-turbo"]  # Add more models as needed
+        model_choices = ["gpt-4o-mini", "gpt-4o", "gpt-4-turbo", "gpt-3.5-turbo", "gpt-4o-mini-search-preview", "gpt-4.1-nano", "gpt-4.1-mini"]  # Add more models as needed
         self.model_combo = wx.ComboBox(self, choices=model_choices, style=wx.CB_DROPDOWN)
         self.model_combo.SetValue("gpt-4o-mini")  # Set the default value
         vbox.Add(self.model_combo, flag=wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, border=5)
