@@ -934,6 +934,9 @@ class MainFrame(wx.Frame):
             timestamp = execute_llm.execute_llm(llm_module, module_args, config, output_dir, self.result_name, progress_callback=self.progress_dialog.update_progress, cache_timeout=cache_timeout, max_cost=max_cost)
             if not self.progress_dialog.running:
                 self.interrupted = True
+
+            analysis_results = analyse_results.analyse_results(config, output_dir, self.result_name, self.analyse_functions)
+
         except Exception as e:
             self.execute_error = str(e)
             wx.CallAfter(self.execution_done)
@@ -943,7 +946,6 @@ class MainFrame(wx.Frame):
             traceback.print_exc()
             return
 
-        analysis_results = analyse_results.analyse_results(config, output_dir, self.result_name, self.analyse_functions)
 
         # The zipfile name is the result name with the timestamp
         zipfile_name = f'{self.result_name}_{timestamp}.zip'
