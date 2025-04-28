@@ -98,6 +98,10 @@ def analyse_results(config, output_dir, result_name, analyse_functions):
                 if r is not None:
                     if not isinstance(r, list):
                         r = [r]
+
+                    # Extract _extra field if present. This is nedded to check if there is a single item (possible key) in the list
+                    extras = [x.pop('_extra', None) for x in r]
+
                     # Check if every item in the list has a strict format like {"respose": <list of dictionaries>}
                     if all(isinstance(x, dict) for x in r) and all(len(x) == 1 for x in r):
                         # possible keys
@@ -107,8 +111,14 @@ def analyse_results(config, output_dir, result_name, analyse_functions):
                         if all(list(x.keys())[0] in possible_keys and isinstance(list(x.values())[0], list) for x in r):
                             r = [y for x in r for y in list(x.values())[0]]
 
+                    # add the input arguments to the response
                     for x in r:
                         x.update({f'input_{k}':v for k,v in argument_combination._prompt_arguments_masked.items()})
+
+                    # Add the extra fields back to the dictionaries, if they exist
+                    for x, extra in zip(r, extras):
+                        if extra:
+                            x.update(extra)
                     analysis += r
 
         #print(analysis)
