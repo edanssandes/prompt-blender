@@ -116,15 +116,18 @@ def _execute_inner(llm_module, module_args, output_dir, result_name, cache_timeo
 
         if cache_age < cache_timeout:
             # Read the result file
-            with open(result_file, 'r', encoding='utf-8') as file:
-                output = json.load(file)
+            try:
+                with open(result_file, 'r', encoding='utf-8') as file:
+                    output = json.load(file)
 
-            # Check if the prompt file is the same
-            if output['prompt'] != prompt_content:
-                print(f'{prompt_file}: prompt file has changed')
-            else:
-                return output
-            
+                # Check if the prompt file is the same
+                if output['prompt'] != prompt_content:
+                    print(f'{prompt_file}: prompt file has changed')
+                else:
+                    return output                    
+            except json.JSONDecodeError:
+                print(f'{result_file}: cache file is corrupted. Deleting it.')
+                os.remove(result_file)
 
 
     print(f'{prompt_file}: processing')
