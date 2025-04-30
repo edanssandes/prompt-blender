@@ -4,6 +4,7 @@ from browser_use.browser.context import BrowserContextConfig
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel
 import os
+import re
 import uuid
 from playwright.async_api import async_playwright
 import asyncio
@@ -54,6 +55,7 @@ def start_browser():
 
     config = BrowserContextConfig(
         save_recording_path=output_dir,
+        permissions=[]  # Avoid browser permission prompts
         #browser_window_size={'width': 800, 'height': 600},
     )
     browser = Browser()
@@ -61,15 +63,11 @@ def start_browser():
 
     return browser, browser_context
 
-class Screenshots(BaseModel):
-    # List of strings
-    screenshots: list[str] = []
-
 @controller.action(
     'Save a screenshot of the current page in PNG format',
 )
-async def save_screenshot(param: Screenshots, browser: BrowserContext):
-    print("Saving screenshot...")
+async def save_screenshot(title: str, browser: BrowserContext):
+    print("Saving screenshot...", title)
     page = await browser.get_current_page()
     screenshot = await page.screenshot(
         full_page=True,
@@ -83,7 +81,10 @@ async def save_screenshot(param: Screenshots, browser: BrowserContext):
     id = str(uuid.uuid4())
     # Random file name 
 
-    screenshot_name = f"{screenshot_folder}/screenshot_{id}.png"
+    # Sanitize title. Accept only numbers, letters. Replace anything else with '_'
+    title = re.sub(r'[^a-zA-Z0-9]', '_', title) if title else '_'
+
+    screenshot_name = f"{screenshot_folder}/screenshot_{title}_{id}.png"
     with open(screenshot_name, 'wb') as f:
         f.write(screenshot)
     print(f"Screenshot saved as {screenshot_name}")
@@ -91,7 +92,6 @@ async def save_screenshot(param: Screenshots, browser: BrowserContext):
     return ActionResult(
         extracted_content=screenshot_name
     )
-    screenshots.append(screenshot_name)
 
 async def run_agent(prompt):
     browser, browser_context = start_browser()
