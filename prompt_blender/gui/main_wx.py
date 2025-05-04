@@ -390,12 +390,15 @@ class MainFrame(wx.Frame):
 
             def on_menu_click(event):
                 item = event.GetId()
-                if item == 1:
-                    self.add_table_from_list()
-                elif item == 2:
-                    self.add_table_from_file()
-                elif item == 3:
-                    self.add_table_from_directory()
+                try:
+                    if item == 1:
+                        self.add_table_from_list()
+                    elif item == 2:
+                        self.add_table_from_file()
+                    elif item == 3:
+                        self.add_table_from_directory()
+                except ValueError as e:
+                    wx.MessageBox(f"Error: {e}", "Error", wx.OK | wx.ICON_ERROR)
 
             self.Bind(wx.EVT_MENU, on_menu_click)
 
@@ -440,7 +443,9 @@ class MainFrame(wx.Frame):
                     path += f".{PROJECT_FILE_EXTENSION}"
 
                 self.data.save_to_file(path)
-                self.preferences.add_recent_file(path)
+                self.preferences.add_recent_file(path, PREFERENCE_FILE)
+                self.update_recent_files()
+
             else:
                 # Cancelled
                 return False  
@@ -475,8 +480,7 @@ class MainFrame(wx.Frame):
             self.data = Model.create_from_file(path)
             self.data.add_on_modified_callback(self.update_project_state)
             self.populate_data()
-            self.preferences.add_recent_file(path)
-            self.preferences.save_to_file(PREFERENCE_FILE)
+            self.preferences.add_recent_file(path, PREFERENCE_FILE)
             self.update_recent_files()
             
     def close_project(self):
@@ -682,7 +686,14 @@ class MainFrame(wx.Frame):
 
         def on_recent_file(event):
             file = self.preferences.recent_files[event.GetId() - 2000]
-            self.data = Model.create_from_file(file)
+            try:
+                self.data = Model.create_from_file(file)
+            except FileNotFoundError as e:
+                wx.MessageBox(f"File does not exist: {file}", "Error", wx.OK | wx.ICON_ERROR)
+                self.preferences.remove_recent_file(file, PREFERENCE_FILE)
+                self.update_recent_files()
+                return
+            
             self.data.add_on_modified_callback(self.update_project_state)
             self.populate_data()
 
@@ -995,8 +1006,6 @@ class MainFrame(wx.Frame):
 
        
     def execution_done(self):
-        self.progress_dialog.Hide()
-
         if self.execute_error:
             wx.MessageBox(f"LLM Execution error: {self.execute_error}", "Erro", wx.OK | wx.ICON_ERROR)
         elif self.interrupted:
@@ -1004,6 +1013,8 @@ class MainFrame(wx.Frame):
         else:
             wx.MessageBox("LLM Execution successful", "Success", wx.OK | wx.ICON_INFORMATION)
             self.export_results()
+            
+        self.progress_dialog.Hide()
 
 
     def export_results(self):

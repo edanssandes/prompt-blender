@@ -84,6 +84,11 @@ def execute_llm(llm_module, module_args, config, output_dir, result_name, cache_
 
             keep_running = progress_callback(i, num_combinations, description=description)
             x = keep_running and (not over_budget)
+
+            if total_cost >= max_cost:
+                print("Execution cost exceeded the budget. Stopping execution.")
+                raise RuntimeError(f"Execution cost exceeded the budget: ${total_cost:.2f} > ${max_cost:.2f}")
+
             return x
         else:
             return True
@@ -92,13 +97,18 @@ def execute_llm(llm_module, module_args, config, output_dir, result_name, cache_
     # If we are reusing all the cached files, the latest timestamp will be the same across all the runs.
     max_timestamp = ''  
 
-    for argument_combination in config.get_parameter_combinations(callback):
-        output = _execute_inner(llm_module, module_args, output_dir, result_name, cache_timeout, argument_combination)
-        max_timestamp = max(max_timestamp, output['timestamp'])
-        total_cost += output['cost'] if output.get('cost', None) is not None else 0
-        time.sleep(0.01)  # This allows the animation to be shown in the GUI for executions that are too fast (e.g. full cache hits)
+    try:
+        for argument_combination in config.get_parameter_combinations(callback):
+            output = _execute_inner(llm_module, module_args, output_dir, result_name, cache_timeout, argument_combination)
+            max_timestamp = max(max_timestamp, output['timestamp'])
+            total_cost += output['cost'] if output.get('cost', None) is not None else 0
+            time.sleep(0.01)  # This allows the animation to be shown in the GUI for executions that are too fast (e.g. full cache hits)
 
-    llm_module.exec_close()
+        if progress_callback:
+            progress_callback(0, 0, description="Finishing up...")
+    finally:
+        llm_module.exec_close()
+
 
     return max_timestamp
 

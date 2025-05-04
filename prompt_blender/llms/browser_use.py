@@ -1,13 +1,22 @@
+import os
+# Disable telemetry before importing browser_use
+os.environ["ANONYMIZED_TELEMETRY"] = "false"
+
 from browser_use import Agent, Browser, Controller, ActionResult
 from browser_use.browser.context import BrowserContext
 from browser_use.browser.context import BrowserContextConfig
 from langchain_openai import ChatOpenAI
+from langchain_community.callbacks.manager import get_openai_callback
 from pydantic import BaseModel
 import os
 import re
 import uuid
 from playwright.async_api import async_playwright
 import asyncio
+import json
+
+from prompt_blender.analysis.gpt_json import extract_json
+
 
 module_info = {
     'name': 'Browser-use Agent',
@@ -73,6 +82,7 @@ async def save_screenshot(title: str, browser: BrowserContext):
         full_page=True,
         animations='disabled',
     )
+    browser.take_screenshot(screenshot)
 
     screenshot_folder = 'screenshots'
     os.makedirs(screenshot_folder, exist_ok=True)
@@ -89,24 +99,57 @@ async def save_screenshot(title: str, browser: BrowserContext):
         f.write(screenshot)
     print(f"Screenshot saved as {screenshot_name}")
 
+    screenshot_filename = f"{screenshot_folder}/screenshot_{title}_{id}.info"
+    with open(screenshot_filename, 'w') as f:
+        f.write(f"{page.url}\n")
+
     return ActionResult(
         extracted_content=screenshot_name
     )
 
+@controller.action(
+    'Store the final result in JSON format',
+)
+async def store_final_result_json(json_data: str):
+    try:
+        data = extract_json(json_data)
+        json_str = json.dumps(data, indent=4)
+        print(f"Storing final result as JSON: {json_str}")
+        return ActionResult(
+            success=True,
+            is_done=True,
+            extracted_content=json_str
+        )
+    except ValueError as e:
+        return ActionResult(
+            error=f"Failed to parse JSON: {str(e)}"
+        )
+
+
+
 async def run_agent(prompt):
     browser, browser_context = start_browser()
 
+    llm = ChatOpenAI(model="gpt-4.1-mini")
+    #llm = ChatOpenAI(model="gpt-4.1-nano")
+
     agent = Agent(
         task=prompt,
-        llm=ChatOpenAI(model="gpt-4.1-mini"),
+        llm=llm,
         browser_context=browser_context,  # redireciona o controle do agente para essa aba com vídeo
         controller=controller,
     )
 
     print(f"Running agent with prompt: {prompt}")
-    result = await agent.run()
-    final_result = result.final_result()
-    print(f"Agent result: {final_result}")
+    with get_openai_callback() as cb:    
+        result = await agent.run()
+        final_result = result.final_result()
+        print(f"Agent result: {final_result}")
+        print(cb)
+        input_tokens = cb.prompt_tokens
+        output_tokens = cb.completion_tokens
+        total_tokens = cb.total_tokens
+        cost = cb.total_cost
 
 
     page = await browser_context.get_current_page()
@@ -127,6 +170,10 @@ async def run_agent(prompt):
         'total_input_tokens': result.total_input_tokens(),
         'video_path': video_path,
         'screenshots': screenshots,
+        'input_tokens': input_tokens,
+        'output_tokens': output_tokens,
+        'total_tokens': total_tokens,
+        'cost': cost,
     }
         
 def exec(prompt, gpt_model, gpt_args, gpt_json, _api_key, **args):
@@ -151,8 +198,7 @@ def exec(prompt, gpt_model, gpt_args, gpt_json, _api_key, **args):
         ]
     }
 
-    # TODO: calculate cost
-    cost = result['total_input_tokens']/1000000.0*0.05
+    cost = result['cost']
 
     return {
         'response': response,

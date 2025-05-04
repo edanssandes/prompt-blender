@@ -52,6 +52,7 @@ def analyse_results(config, output_dir, result_name, analyse_functions):
     # Global Analysis
     result_found = False
     elapsed_time = 0
+    total_cost = 0
 
     combinations = config.get_parameter_combinations()
     for argument_combination in combinations:
@@ -63,6 +64,7 @@ def analyse_results(config, output_dir, result_name, analyse_functions):
                 output = json.load(file)
 
                 elapsed_time += output['elapsed_time']
+                total_cost += output.get('cost', 0)
 
             result_found = True
 
@@ -93,14 +95,16 @@ def analyse_results(config, output_dir, result_name, analyse_functions):
                 output = json.load(file)
 
                 response = output['response']
+                timestamp = output['timestamp']
 
-                r = analyse_function['analyse'](response)
+                r = analyse_function['analyse'](response, timestamp)
                 if r is not None:
                     if not isinstance(r, list):
                         r = [r]
 
                     # Extract _extra field if present. This is nedded to check if there is a single item (possible key) in the list
                     extras = [x.pop('_extra', None) for x in r]
+                    timestamps = [x.pop('_timestamp', None) for x in r]
 
                     # Check if every item in the list has a strict format like {"respose": <list of dictionaries>}
                     if all(isinstance(x, dict) for x in r) and all(len(x) == 1 for x in r):
@@ -115,10 +119,12 @@ def analyse_results(config, output_dir, result_name, analyse_functions):
                     for x in r:
                         x.update({f'input_{k}':v for k,v in argument_combination._prompt_arguments_masked.items()})
 
-                    # Add the extra fields back to the dictionaries, if they exist
-                    for x, extra in zip(r, extras):
+                    # Add the extra and timestamp fields back to the dictionaries, if they exist
+                    for x, extra, timestamp in zip(r, extras, timestamps):
                         if extra:
                             x.update(extra)
+                        if timestamp:
+                            x.update({'_timestamp': timestamp})
                     analysis += r
 
         #print(analysis)
@@ -136,4 +142,15 @@ def analyse_results(config, output_dir, result_name, analyse_functions):
 
 
     print(f'Elapsed LLM time: {elapsed_time:.2f} seconds')
+    if total_cost:
+        print(f'Total cost: US$ {total_cost:.5f}')
+
+    analysis_results['info'] = [
+        {'Info': 'elapsed_time', 'Value': elapsed_time}, 
+        {'Info': 'total_cost', 'Value': total_cost},
+    ]
+    # Include all prompts
+    for k,v in config.enabled_prompts.items():
+        analysis_results['info'].append({'Info': f'Prompt: {k}', 'Value': v})
+
     return analysis_results

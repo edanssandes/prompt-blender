@@ -9,67 +9,89 @@ analyse_info = {
     'llm_modules': ['chatgpt', 'chatgpt_manual'],
 }
 
-def analyse(response):
+
+
+def analyse(response, timestamp):
     analysis = []
 
     for choice in response['choices']:
         content = choice['message']['content']
 
-        data = None
-        error = ""
         try:
+            data = extract_json(content)
+
+            if isinstance(data, list):
+                data = {'response': data}  # Ensure it's a dict with a 'response' key pointing to the list
+
+            if '_extra' in choice:
+                extra = choice['_extra']
+                data['_extra'] = extra
+
+            data['_timestamp'] = timestamp
+            analysis.append(data)
+        except ValueError as e:
+            analysis.append({'_error': str(e), '_raw': content, '_timestamp': timestamp})
+
+
+    return analysis
+
+def extract_json(content):
+    error = ""
+    data = None
+
+    if content is None:
+        raise ValueError("Content is None")
+
+    try:
             # first try
+        if data is None:
             data = json.loads(content)
 
             if isinstance(data, str):
                 data = {'text': data}  # Ensure it's a dict with a 'text' key pointing to the string
 
-        except json.JSONDecodeError as e:
-            error = error + str(e) + '\n'
+    except json.JSONDecodeError as e:
+        error = error + str(e) + '\n'
 
-        try:
+    try:
             # second try
-            if data is None:
-                prefix, response, suffix = re.match(r"^(.*?```json\s*)([\{\[].{5,}[\}\]])(\s*```.*?)$", content, re.DOTALL).groups()
-                data = json.loads(response)
-
-                if isinstance(data, list):
-                    data = {'response': data}  # Ensure it's a dict with a 'response' key pointing to the list
-        except Exception as e:
-            error = error + str(e) + '\n'
-
-
         if data is None:
+            prefix, response, suffix = re.match(r"^(.*?```json\s*)([\{\[].{5,}[\}\]])(\s*```.*?)$", content, re.DOTALL).groups()
+            data = json.loads(response)
+
+    except Exception as e:
+        error = error + str(e) + '\n'
+
+
+    if data is None:
             # third try
-            if content.startswith("'") and content.endswith("'"):
-                data = {'text': content[1:-1]}
+        if content.startswith("'") and content.endswith("'"):
+            data = {'text': content[1:-1]}
 
+    if 'Conforme evidenciado' in content:
+        print("HEY")
 
-        try:
-            # second try
-            if data is None:
-                prefix, response, suffix = re.match(r"^(.*?)([\{\[].{5,}[\}\]])(.*?)$", content, re.DOTALL).groups()
-                data = json.loads(response)
-
-                if isinstance(data, list):
-                    data = {'response': data}  # Ensure it's a dict with a 'response' key pointing to the list
-        except Exception as e:
-            error = error + str(e) + '\n'
-
-        try:
+    try:
             # fourth try
-            if data is None:
-                data = dirtyjson.loads(content)
-        except Exception as e:
-            error = error + str(e) + '\n'
+        if data is None:
+            prefix, response, suffix = re.match(r"^(.*?)([\{\[].{5,}[\}\]])(.*?)$", content, re.DOTALL).groups()
+            data = json.loads(response)
 
-        if data is not None:
-            if '_extra' in choice:
-                extra = choice['_extra']
-                data['_extra'] = extra
-            analysis.append(data)
+    except Exception as e:
+        error = error + str(e) + '\n'
+
+    try:
+            # fifth try
+        if data is None:
+            data = dirtyjson.loads(content)
+
+    except Exception as e:
+        error = error + str(e) + '\n'
+
+    if data is None:
+        if error:
+            raise ValueError(f"Error parsing JSON: {error}")
         else:
-            analysis.append({'_error': error, '_raw': content})
+            raise ValueError("JSON was parsed with no data")
 
-
-    return analysis
+    return data

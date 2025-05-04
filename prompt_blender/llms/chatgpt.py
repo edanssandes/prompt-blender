@@ -3,6 +3,8 @@ import os
 
 client = None
 
+DEFAULT_MODEL = 'gpt-4.1-mini'
+
 def exec_init():
     global client
     client = OpenAI(api_key="")
@@ -19,7 +21,7 @@ def get_args(args=None):
         gpt_json = args.gpt_json
     else:
         gpt_args = {}
-        gpt_model = 'gpt-4o-mini'
+        gpt_model = DEFAULT_MODEL
         gpt_json = True
 
     return {
@@ -101,12 +103,12 @@ def get_cost(response):  # FIXME duplicated code
     elif response['model'] == 'gpt-4o-mini-search-preview':
         cost_in = 0.15
         cost_out = 0.60 
-    elif response['model'] == 'gpt-4.1-nano':
+    elif response['model'] == 'gpt-4.1-nano-2025-04-14':
         cost_in = 0.10
-        cost_out = 0.025
-    elif response['model'] == 'gpt-4.1-mini':
+        cost_out = 0.40
+    elif response['model'] == 'gpt-4.1-mini-2025-04-14':
         cost_in = 0.40
-        cost_out = 0.10
+        cost_out = 1.60
     else:
         cost_in = 0
         cost_out = 0
@@ -145,7 +147,7 @@ class ConfigPanel(wx.Panel):
         vbox.Add(self.model_label, flag=wx.LEFT | wx.TOP, border=5)
         model_choices = ["gpt-4o-mini", "gpt-4o", "gpt-4-turbo", "gpt-3.5-turbo", "gpt-4o-mini-search-preview", "gpt-4.1-nano", "gpt-4.1-mini"]  # Add more models as needed
         self.model_combo = wx.ComboBox(self, choices=model_choices, style=wx.CB_DROPDOWN)
-        self.model_combo.SetValue("gpt-4o-mini")  # Set the default value
+        self.model_combo.SetValue(DEFAULT_MODEL)  # Set the default value
         vbox.Add(self.model_combo, flag=wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, border=5)
 
         # n selection

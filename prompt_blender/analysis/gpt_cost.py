@@ -6,7 +6,7 @@ analyse_info = {
     'llm_modules': ['chatgpt', 'chatgpt_manual'],
 }
 
-def analyse(response):
+def analyse(response, timestamp):
     usage = response.get("usage", None)
     if usage is None:
         return None
@@ -33,6 +33,15 @@ def analyse(response):
     elif response['model'] == 'gpt-4o-mini-2024-07-18':
         cost_in = 0.15
         cost_out = 0.60
+    elif response['model'] == 'gpt-4o-mini-search-preview':
+        cost_in = 0.15
+        cost_out = 0.60 
+    elif response['model'] == 'gpt-4.1-nano-2025-04-14':
+        cost_in = 0.10
+        cost_out = 0.40
+    elif response['model'] == 'gpt-4.1-mini-2025-04-14':
+        cost_in = 0.40
+        cost_out = 1.60
     else:
         cost_in = 0.00
         cost_out = 0.00

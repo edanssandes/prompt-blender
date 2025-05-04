@@ -97,12 +97,17 @@ class Preferences():
     def recent_files(self):
         return self._preferences['recent_files']
 
-    def add_recent_file(self, filename):
+    def add_recent_file(self, filename, preference_file):
         self._preferences['recent_files'].append(filename)
         MAX_FILES = 10
         if len(self._preferences['recent_files']) > MAX_FILES:
             self._preferences['recent_files'] = self._preferences['recent_files'][-MAX_FILES:]
 
+        self.save_to_file(preference_file)
+
+    def remove_recent_file(self, filename, preference_file):
+        self._preferences['recent_files'].remove(filename)
+        self.save_to_file(preference_file)
 
     def __eq__(self, other):
         return self._preferences == other._preferences

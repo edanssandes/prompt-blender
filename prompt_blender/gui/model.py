@@ -336,29 +336,47 @@ class Model:
 
     def add_table_from_directory(self, directory_path, encoding='utf-8', split_length=8000000):
         param = []
+        errors = []
         for file in os.listdir(directory_path):
+            print("Reading file:", file)
             file_lower = file.lower()
             f = os.path.join(directory_path, file)
-            text = None
-            if file_lower.endswith(".txt"):
-                text = Path(f).read_text(encoding=encoding)
-            elif file_lower.endswith(".pdf"):
-                text = self.convert_pdf_to_txt(f)
-            elif file_lower.endswith(".docx"):
-                text = self.convert_docx_to_txt(f)
+            try:
+                p = self._get_params_from_file(encoding, split_length, file, file_lower, f)
+                param += p
+            except Exception as e:
+                print(f"Error reading file {file}: {e}")
+                errors.append(file)
+                continue
 
-            if text is not None:
-                if len(text) > split_length:
-                    # Split text into chunks
-                    chunks = [text[i:i+split_length]
-                              for i in range(0, len(text), split_length)]
-                    for i, chunk in enumerate(chunks):
-                        param.append(
-                            {'_id': f"{file}_part_{i:03}", 'document_text': chunk})
-                else:
-                    param.append(
-                        {'_id': file, 'document_text': text})
+        if errors:
+            raise ValueError(
+                f"Errors reading files: {errors}. Please, check the files and try again.")
         self.add_param('dir', param)
+
+    def _get_params_from_file(self, encoding, split_length, file, file_lower, f):
+        param = []
+        text = None
+        if file_lower.endswith(".txt"):
+            text = Path(f).read_text(encoding=encoding)
+        elif file_lower.endswith(".pdf"):
+            text = self.convert_pdf_to_txt(f)
+        elif file_lower.endswith(".docx"):
+            text = self.convert_docx_to_txt(f)
+
+        if text is not None:
+            if len(text) > split_length:
+                    # Split text into chunks
+                chunks = [text[i:i+split_length]
+                              for i in range(0, len(text), split_length)]
+                for i, chunk in enumerate(chunks):
+                    param.append(
+                            {'_id': f"{file}_part_{i:03}", 'document_text': chunk})
+            else:
+                param.append(
+                        {'_id': file, 'document_text': text})
+                
+        return param
 
     def convert_docx_to_txt(self, input_path):
         text = docx2txt.process(input_path)
