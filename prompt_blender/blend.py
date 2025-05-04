@@ -39,7 +39,7 @@ def blend_prompt(config, output_dir, progress_callback=None):
         else:
             return True
 
-    #print(output_dir)
+    print(f'Creating prompt files in {output_dir}...')
     for argument_combination in config.get_parameter_combinations(callback):
 
         # Join the file path and create the directory if it does not exist.
@@ -57,7 +57,9 @@ def blend_prompt(config, output_dir, progress_callback=None):
 
         # Add the filename and reference values to the list of files to be returned.
         files.append((filename, argument_combination._prompt_arguments))
+
+        print(f'  {filename}')
         #print(filename, refs_values)
 
-    print(files)
+    #print(files)
     return files
