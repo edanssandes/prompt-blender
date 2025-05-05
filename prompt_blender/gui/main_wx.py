@@ -965,7 +965,7 @@ class MainFrame(wx.Frame):
         last_result_file = os.path.join(output_dir, zipfile_name)
         with zipfile.ZipFile(last_result_file, 'w') as zipf:
             byteio = io.BytesIO()
-            with pd.ExcelWriter(byteio) as writer:
+            with pd.ExcelWriter(byteio, engine="xlsxwriter") as writer:
                 for module_name, results in analysis_results.items():
                     if results:
                         df = pd.DataFrame(results)
@@ -1013,7 +1013,7 @@ class MainFrame(wx.Frame):
         else:
             wx.MessageBox("LLM Execution successful", "Success", wx.OK | wx.ICON_INFORMATION)
             self.export_results()
-            
+
         self.progress_dialog.Hide()
 
 
