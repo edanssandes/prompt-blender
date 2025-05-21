@@ -391,7 +391,7 @@ class Model:
 
     def add_table_from_string(self, content, extension):
         # Create system temporary file
-        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix=f'.{extension}') as file:
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix=f'.{extension}', encoding='utf-8') as file:
             file.write(content)
             file.close()
             file_path = file.name
@@ -448,6 +448,8 @@ class Model:
             spec.loader.exec_module(module)
             if hasattr(module, 'apply_transform'):
                 for i, row in enumerate(param):
+                    print("*****")
+                    print(i, row['document_text'])
                     param[i].update(module.apply_transform(row))
             else:
                 raise ValueError(
