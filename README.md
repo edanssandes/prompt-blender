@@ -54,6 +54,13 @@ Install the PromptBlender repository to your local machine:
 pip install git+https://github.com/edanssandes/prompt-blender
 ```
 
+If using Web agents, you need to install a playwright browser.
+
+```bash
+python -m playwright install chromium
+```
+
+
 ### Graphical User Interface (GUI)
 
 The PromptBlender project includes a user-friendly Graphical User Interface (GUI) that allows you to interact with the application easily. To open the GUI, you can run the following command in your terminal, without any parameter:
