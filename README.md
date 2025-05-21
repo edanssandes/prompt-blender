@@ -44,7 +44,7 @@ Install some dependencies (workaround for the large dependency list of browser-u
 ```bash
 conda install wxpython  
 pip install browser-use --no-deps
-pip install openai langchain-openai playwright pyperclip screeninfo psutil pydantic dotenv mem0ai
+pip install langchain_community --no-deps
 ```
 
 

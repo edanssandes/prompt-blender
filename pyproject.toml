@@ -9,14 +9,22 @@ include = ["prompt_blender/*"]
 name = "prompt-blender"
 version = "0.1.0"
 dependencies = [
-  "pyperclip>=1.8.2",
+  "pyperclip>=1.9.0",
   "pandas>=2.0.3",
   "openai>=1.29.0",
   "openpyxl>=3.1.2",
   "wxPython>=4.2.1",
   "groq>=0.11.0",
   "docx2txt>=0.8",
-  "PyPDF2>=3.0.1"
+  "PyPDF2>=3.0.1",
+  "mem0ai>=0.1.94",
+  "dirtyjson>=1.0.8",
+  "pydantic>=2.11.3",
+  "dotenv>=0.9.9",
+  "psutil>=7.0.0",
+  "screeninfo>=0.8.1",
+  "langchain-openai>=0.3.14",
+  "playwright>=1.51.0"
 ]
 requires-python = ">=3.11"
 authors = [
