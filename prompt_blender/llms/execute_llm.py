@@ -3,6 +3,7 @@ import os
 import time
 import importlib.util
 import copy
+import traceback
 
 from prompt_blender import info
 
@@ -24,7 +25,17 @@ def load_modules(paths):
         print(f'Loading {module_name}')
         spec = importlib.util.spec_from_file_location(module_name, module_file)
         module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
+
+        try:
+            spec.loader.exec_module(module)
+        except Exception as e:
+            print("*******WARNING*******")
+            print(f'Error loading module {module_name}: {e}')
+            # dump stack trace
+            traceback.print_exc()
+            print("*********************")
+
+            continue
 
         if not hasattr(module, 'exec'):
             print(f'Warning: module {module_name} does not have an exec method.'.format(module_name))
