@@ -1,25 +1,37 @@
 import time
 import random
+import wx
 
-def info():
-    return {
-        "name": "dummy",
-        "description": "Dummy LLMS module for testing purposes.",
-    }
+module_info = {
+    'id': '66981b2d-3b8b-473a-9caf-3cd9c329f5d7',
+    'name': 'Dummy',
+    'description': 'Dummy execution module to mimic API return for testing purposes.',
+    'version': '1.0.0',
+    'release_date': '2025-07-01',
+    'cache_prefix': 'dummy',
+}
+
+DEFAULT_STUB_MESSAGE = "Stub response from the dummy model."
+
 
 def exec_init():
     pass
 
 def get_args(args=None):
-    return {}
+    # Default value for stub_response
+    if args is None:
+        args = {}
+    return {
+        "stub_response": args.get("stub_response", DEFAULT_STUB_MESSAGE)
+    }
 
-
-def exec(prompt):
-    fake_response = {
+def exec(prompt, args=None, stub_response=None):
+    args = get_args(args)
+    stub_response = {
         "choices": [
             {
                 "message": {
-                    "content": "Texto de resposta do modelo GPT."
+                    "content": stub_response
                 }
             }
         ]
@@ -29,11 +41,37 @@ def exec(prompt):
     time.sleep(0.15)
 
     return {
-        "response": fake_response,
+        "response": stub_response,
         "cost": 0.001 + random.random() * 0.002
     }
 
 def exec_close():
     pass
 
-        
+# --- ConfigPanel for GUI configuration ---
+class ConfigPanel(wx.Panel):
+    def __init__(self, parent, args=None):
+        super().__init__(parent)
+        sizer = wx.BoxSizer(wx.VERTICAL)
+
+        lbl = wx.StaticText(self, label="Stub Response:")
+        self.txt_stub_response = wx.TextCtrl(self, value=DEFAULT_STUB_MESSAGE)
+        sizer.Add(lbl, flag=wx.ALL, border=5)
+        sizer.Add(self.txt_stub_response, flag=wx.EXPAND | wx.ALL, border=5)
+
+        self.SetSizer(sizer)
+
+    @property
+    def args(self):
+        return {
+            "stub_response": self.txt_stub_response.GetValue()
+        }
+    
+    @args.setter
+    def args(self, value):
+        if value is not None:
+            self.txt_stub_response.SetValue(value.get("stub_response", DEFAULT_STUB_MESSAGE))
+        else:
+            self.txt_stub_response.SetValue(DEFAULT_STUB_MESSAGE)
+
+

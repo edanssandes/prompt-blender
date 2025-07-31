@@ -1,6 +1,6 @@
 {
-    "parameters": [
-        [
+    "parameters": {
+        "GSM8K": [
             {
                 "question": "Janet’s ducks lay 16 eggs per day. She eats three for breakfast every morning and bakes muffins for her friends every day with four. She sells the remainder at the farmers' market daily for $2 per fresh duck egg. How much in dollars does she make every day at the farmers' market?",
                 "answer": "Janet sells 16 - 3 - 4 = <<16-3-4=9>>9 duck eggs a day.\nShe makes 9 * 2 = $<<9*2=18>>18 every day at the farmer’s market.\n#### 18",
@@ -202,14 +202,16 @@
                 "answer_number": 18.0
             }
         ]
-    ],
-    "prompts": [
-        "{question}\n\nAnswer the above question in the following json format:\n{{\n\"answer\": <return the answer of the question as float>\n}}",
-        "{question}\n\nAnswer the above question in the following json format:\n{{\n\"answer\": <return the answer of the question as float>,\n\"explanation\": <explain your calculation step by step>\n}}",
-        "{question}\n\nAnswer the above question in the following json format:\n{{\n\"explanation\": <explain your calculation step by step>,\n\"answer\": <return the answer of the question as float>\n}}"
-    ],
+    },
+    "prompts": {
+        "Only-Answer": "{question}\n\nAnswer the above question in the following json format:\n{{\n\"answer\": <return the answer of the question as float>\n}}",
+        "Answer-Explanation": "{question}\n\nAnswer the above question in the following json format:\n{{\n\"answer\": <return the answer of the question as float>,\n\"explanation\": <explain your calculation step by step>\n}}",
+        "Explanation-Answer": "{question}\n\nAnswer the above question in the following json format:\n{{\n\"explanation\": <explain your calculation step by step>,\n\"answer\": <return the answer of the question as float>\n}}"
+    },
     "metadata": {
-        "modified_time": "2024-05-26T00:50:53.842441-03:00",
-        "app_version": "0.0.2"
+        "modified_time": "2025-06-26T08:59:50.585844-03:00",
+        "app_version": "0.1.0",
+        "file_format_version": "1.0",
+        "app_name": "Prompt Blender"
     }
 }

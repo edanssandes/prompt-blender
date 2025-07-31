@@ -48,22 +48,24 @@ def load_modules(paths):
     return analyse_functions
 
 
-def analyse_results(config, output_dir, result_name, analyse_functions):
+def analyse_results(run, config, output_dir, analyse_functions):
     # Global Analysis
     result_found = False
     elapsed_time = 0
     total_cost = 0
 
+    run_hash = run['run_hash']
+
     combinations = config.get_parameter_combinations()
     for argument_combination in combinations:
         #prompt_file = os.path.join(output_dir, argument_combination.prompt_file)
-        result_file = os.path.join(output_dir, argument_combination.get_result_file(result_name))
+        result_file = os.path.join(output_dir, argument_combination.get_result_file(run_hash))
 
         if os.path.isfile(result_file):
             with open(result_file, 'r', encoding='utf-8') as file:
                 output = json.load(file)
 
-                elapsed_time += output['elapsed_time']
+                elapsed_time += output.get('elapsed_time', 0)
                 total_cost += output.get('cost', 0)
 
             result_found = True
@@ -82,7 +84,7 @@ def analyse_results(config, output_dir, result_name, analyse_functions):
         analysis = []
         for argument_combination in config.get_parameter_combinations():
             prompt_file = os.path.join(output_dir, argument_combination.prompt_file)
-            result_file = os.path.join(output_dir, argument_combination.get_result_file(result_name))
+            result_file = os.path.join(output_dir, argument_combination.get_result_file(run_hash))
             #base_dir = os.path.join(output_dir, argument_combination.filepath)
             #result_file = os.path.join(base_dir, 'result_gpt.json')
 
@@ -113,6 +115,7 @@ def analyse_results(config, output_dir, result_name, analyse_functions):
 
                         # Check if the key is in the dictionary and the value is a list in every item
                         if all(list(x.keys())[0] in possible_keys and isinstance(list(x.values())[0], list) for x in r):
+                            # TODO Need to expand extras parameters 
                             r = [y for x in r for y in list(x.values())[0]]
 
                     # add the input arguments to the response
@@ -145,12 +148,9 @@ def analyse_results(config, output_dir, result_name, analyse_functions):
     if total_cost:
         print(f'Total cost: US$ {total_cost:.5f}')
 
-    analysis_results['info'] = [
-        {'Info': 'elapsed_time', 'Value': elapsed_time}, 
-        {'Info': 'total_cost', 'Value': total_cost},
-    ]
-    # Include all prompts
-    for k,v in config.enabled_prompts.items():
-        analysis_results['info'].append({'Info': f'Prompt: {k}', 'Value': v})
+    analysis_results['info'] = [{
+        'elapsed_time': elapsed_time,
+        'total_cost': total_cost,
+    }]
 
     return analysis_results

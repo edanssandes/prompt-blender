@@ -19,10 +19,12 @@ from prompt_blender.analysis.gpt_json import extract_json
 
 
 module_info = {
+    'id': 'a95f8287-6a34-4ecb-b917-dd994476f386',
     'name': 'Browser-use Agent',
     'description': 'Execute a browser agent to access websites and extract information.',
     'version': '0.0.1',
     'release_date': '2025-01-01',
+    'cache_prefix': 'browser_use',
 }
 
 

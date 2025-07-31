@@ -15,6 +15,8 @@ from PyPDF2 import PdfReader
 
 FILE_FORMAT_VERSION = "1.0"
 
+SPLIT_ALL_CHUNKS = None
+
 class Model:
     # Cores com contraste suficiente para serem usadas no highlight, sobre um fundo branco
     default_colors = [
@@ -38,6 +40,14 @@ class Model:
         # Dictionary that represents the project data
         self.data = Model.migrate(data)
 
+        # Loading default values for the data structure, if not present
+        if "runs" not in self.data:
+            self.data["runs"] = {}
+        if "prompts" not in self.data:
+            self.data["prompts"] = {}
+        if "parameters" not in self.data:
+            self.data["parameters"] = {}
+
         # Dictionary that stores the colors for each variable
         self.variable_colors = {}
 
@@ -56,9 +66,13 @@ class Model:
     def migrate(data):
         if "metadata" not in data:
             return data
-        version = [int(v) for v in data.get("metadata", {}).get(
-            "file_format_version", "0.0").split('.')]
+        version_str = data.get("metadata", {}).get("file_format_version", "0.0")
+        version = [int(v) for v in version_str.split('.')]
 
+        if version > [int(x) for x in FILE_FORMAT_VERSION.split('.')]:
+            raise ValueError(
+                f"File format version {version_str} is not supported. Please, use a compatible version of Prompt Blender.")
+        
         if version < [1, 0]:
             if isinstance(data["parameters"], list):
                 data["parameters"] = {
@@ -88,6 +102,14 @@ class Model:
             "prompts": {
                 "Celsius to Fahrenheit": "A temperature of {celsius_value}°C is measured in Celsius.\nThe corresponding Fahrenheit reading was {fahrenheit_values}°F.\nUsing the formula F = (9/5) * C + 32, calculate the expected Fahrenheit value for {celsius_value}°C.\nCompare the calculated Fahrenheit value with the measured value.\n\nProvide the result in the following output JSON format:\n{{\n\t\"calculated_fahrenheit\": <calculated value>,\n\t\"measured_fahrenheit\": <measured value>,\n\t\"difference\": <absolute difference>,\n\t\"match\": <true if they match, else false>\n}}.",
                 "Fahrenheit to Celsius": "A temperature of {fahrenheit_values}°F is measured in Fahrenheit.\nThe corresponding Celsius reading was {celsius_value}°C.\nUsing the formula C = (5/9) * (F - 32), calculate the expected Celsius value for {fahrenheit_values}°F.\nCompare the calculated Celsius value with the original Celsius reading.\n\nProvide the result in the following output JSON format:\n{{\n\t\"calculated_celsius\": <calculated value>,\n\t\"measured_celsius\": <measured value>,\n\t\"difference\": <absolute difference>,\n\t\"match\": <true if they match, else false>\n}}."
+            },
+            "runs": {
+                "Teste 1": {
+                    "module_id": "66981b2d-3b8b-473a-9caf-3cd9c329f5d7",
+                    "module_args": {
+                        "stub_response": "Stub response from the dummy model. #1"
+                    }
+                }
             }
         }
 
@@ -105,7 +127,8 @@ class Model:
     def create_empty():
         data = {
             "parameters": {},
-            "prompts": {}
+            "prompts": {},
+            "runs": {},
         }
         return Model(data)
 
@@ -231,6 +254,16 @@ class Model:
         return True
 
     @property
+    def run_configurations(self):
+        return self.data["runs"]
+    
+    @run_configurations.setter
+    def run_configurations(self, value):
+        if value != self.data["runs"]:
+            self.data["runs"] = value
+            self.is_modified = True
+
+    @property
     def file_path(self):
         return self._file_path
 
@@ -334,7 +367,7 @@ class Model:
             )
             self.is_modified = True
 
-    def add_table_from_directory(self, directory_path, encoding='utf-8', split_length=8000000):
+    def add_table_from_directory(self, directory_path, encoding='utf-8', split_length=8000000, split_count=SPLIT_ALL_CHUNKS):
         param = []
         errors = []
         for file in os.listdir(directory_path):
@@ -342,7 +375,7 @@ class Model:
             file_lower = file.lower()
             f = os.path.join(directory_path, file)
             try:
-                p = self._get_params_from_file(encoding, split_length, file, file_lower, f)
+                p = self._get_params_from_file(encoding, split_length, file, file_lower, f, split_count)
                 param += p
             except Exception as e:
                 print(f"Error reading file {file}: {e}")
@@ -354,7 +387,7 @@ class Model:
                 f"Errors reading files: {errors}. Please, check the files and try again.")
         self.add_param('dir', param)
 
-    def _get_params_from_file(self, encoding, split_length, file, file_lower, f):
+    def _get_params_from_file(self, encoding, split_length, file, file_lower, f, split_count):
         param = []
         text = None
         if file_lower.endswith(".txt"):
@@ -376,7 +409,12 @@ class Model:
                 param.append(
                         {'_id': file, 'document_text': text})
                 
-        return param
+        if not split_count:
+            return param
+        elif split_count < 0:
+            return param[-split_count:]
+        else:
+            return param[:split_count]
 
     def convert_docx_to_txt(self, input_path):
         text = docx2txt.process(input_path)
@@ -524,14 +562,54 @@ class Model:
 
         return tag_positions, new_text
 
-    def get_result(self, prompt_name, output_dir, result_name):
+    def get_result(self, prompt_name, output_dir, run_hashes):
+
         config = Config.load_from_dict(self.data)
         combination = config.get_parameter_combination(
             prompt_name, self.get_selected_values())
-        result_file = os.path.join(
-            output_dir, combination.get_result_file(result_name))
-        if os.path.exists(result_file):
-            with open(result_file, 'r', encoding='utf-8') as file:
-                return file.read()
-        else:
+        
+        results = {}
+
+        for run_name, run_hash in run_hashes.items():        
+            result_file = os.path.join(output_dir, combination.get_result_file(run_hash))
+            result_content_json = None
+            if os.path.exists(result_file):
+                with open(result_file, 'r', encoding='utf-8') as file:
+                    result_content_json = file.read()
+
+            # Convert JSON to a formatted string
+            result_content = None
+            if result_content_json:
+                try:
+                    result_data = json.loads(result_content_json)
+                    usage = result_data.get("response",{})["usage"]
+                    print(usage["completion_tokens"], usage["prompt_tokens"])
+                    result_content = json.dumps(result_data, indent=4, ensure_ascii=False)
+
+                    # Decode json strings with \\n, \\t, \\"
+                    result_content = result_content.replace('\\n', '\n')
+                    result_content = result_content.replace('\\t', '\t')
+                    result_content = result_content.replace('\\"', '"')
+
+                except json.JSONDecodeError as e:
+                    print(f"Error decoding JSON from {result_file}: {e}")
+                    result_content = f"Error decoding JSON: {e}"
+            
+            results[run_name] = result_content
+        
+        # if all results are null
+        if not any(results.values()):
             return None
+
+        sep = "=" * 80
+        full_results = ""
+        for run_name, result_content in results.items():
+            full_results += f"{sep}\nRun: {run_name}\n{sep}\n"
+            if result_content:
+                full_results += result_content
+            else:
+                full_results += "No result found"
+            full_results += "\n"*4
+
+        #print(f"Full results for prompt '{prompt_name}':\n{full_results}")
+        return full_results

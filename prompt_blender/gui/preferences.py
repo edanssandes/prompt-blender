@@ -98,6 +98,9 @@ class Preferences():
         return self._preferences['recent_files']
 
     def add_recent_file(self, filename, preference_file):
+        # Only add if not already present
+        if filename in self._preferences['recent_files']:
+            return
         self._preferences['recent_files'].append(filename)
         MAX_FILES = 10
         if len(self._preferences['recent_files']) > MAX_FILES:

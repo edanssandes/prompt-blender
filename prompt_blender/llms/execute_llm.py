@@ -2,6 +2,7 @@ import json
 import os
 import time
 import importlib.util
+import copy
 
 from prompt_blender import info
 
@@ -26,21 +27,73 @@ def load_modules(paths):
         spec.loader.exec_module(module)
 
         if not hasattr(module, 'exec'):
+            print(f'Warning: module {module_name} does not have an exec method.'.format(module_name))
             continue
 
         if not hasattr(module, 'module_info'):
-            module.module_info = {'name': module_name, 'description': 'No description available'}
+            module.module_info = {
+                'name': module_name, 
+                'id': None,
+                'description': 'No description available'
+            }
 
         if not 'version' in module.module_info:
             module.module_info['version'] = ''
+        module_id = module.module_info.get('id', None)
 
-        modules[module_name] = module
+        if not module_id:
+            print(f'Warning: module {module_name} does not have an id.'.format(module_name))
+            continue
+
+        modules[module_id] = module
 
     return modules
 
 
+def expire_cache(run_args, config, output_dir, cache_timeout=None, progress_callback=None):
+    """
+    Expire the cache for the given run arguments and configuration.
+    
+    Args:
+        run_args (dict): The run arguments containing the LLM module and other parameters.
+        config (ConfigModel): The configuration model containing parameter combinations.
+        output_dir (str): The directory where output files are stored.
+        cache_timeout (int, optional): The cache timeout in seconds. Defaults to None, meaning no expiration.
 
-def execute_llm(llm_module, module_args, config, output_dir, result_name, cache_timeout=None, progress_callback=None, max_cost=0):
+    Returns:
+        None
+    """
+
+    if progress_callback:
+        progress_callback(0, 0, description="Loading LLM module...")
+
+    def callback(i, num_combinations):
+        if progress_callback:
+            description = "Expiring cache..." if i < num_combinations else "Finishing up..."
+            return progress_callback(i, num_combinations, description=description)
+        else:
+            return True
+
+    for argument_combination in config.get_parameter_combinations(callback):
+        result_file = os.path.join(output_dir, argument_combination.get_result_file(run_args['run_hash']))
+        delayed_file = result_file + '.delayed'
+        print("EXPIRING", result_file, delayed_file)
+        expire_file(cache_timeout, result_file)
+        expire_file(cache_timeout, delayed_file)
+
+    if progress_callback:
+        progress_callback(0, 0, description="Finishing up...")
+
+def expire_file(cache_timeout, file):
+    if os.path.exists(file):
+        print(file)
+        cache_age = time.time() - os.path.getmtime(file)
+        if cache_age >= cache_timeout:
+            print(f'Expiring cache for {file}')
+            os.remove(file)
+
+
+def execute_llm(run_args, config, output_dir, cache_timeout=None, progress_callback=None, max_cost=0):
     """
     Executes the LLM (Language Model) with the given arguments and output files.
 
@@ -51,15 +104,17 @@ def execute_llm(llm_module, module_args, config, output_dir, result_name, cache_
     Returns:
         None
     """
-
-    if module_args is None:
-        module_args = {}
+    
+    module_args = run_args.get('args', {})
+    print('Running module:', run_args['module_name'], 'with args:', module_args)
+    print(f'Run Hash: {run_args["run_hash"]}')
 
     if progress_callback:
         progress_callback(0, 0, description="Loading LLM module...")
 
     time.sleep(0.75)  # This allows the animation to be shown in the GUI for executions that are too fast (e.g. full cache hits)
 
+    llm_module = run_args['llm_module']
     llm_module.exec_init()
 
     total_cost = 0
@@ -95,31 +150,68 @@ def execute_llm(llm_module, module_args, config, output_dir, result_name, cache_
 
     # latest timestamp. This will be used to determine the file name of the output file.
     # If we are reusing all the cached files, the latest timestamp will be the same across all the runs.
-    max_timestamp = ''  
+    max_timestamp = ''
 
     try:
         for argument_combination in config.get_parameter_combinations(callback):
-            output = _execute_inner(llm_module, module_args, output_dir, result_name, cache_timeout, argument_combination)
-            max_timestamp = max(max_timestamp, output['timestamp'])
-            total_cost += output['cost'] if output.get('cost', None) is not None else 0
-            time.sleep(0.01)  # This allows the animation to be shown in the GUI for executions that are too fast (e.g. full cache hits)
+            output = _execute_inner(run_args, output_dir, cache_timeout, argument_combination)
+            time.sleep(0.005)  # This allows the animation to be shown in the GUI for executions that are too fast (e.g. full cache hits)
+
+            if output:
+                max_timestamp = max(max_timestamp, output['timestamp'])
+                total_cost += output['cost'] if output.get('cost', None) is not None else 0
+
+        pending = _execute_delayed(run_args, config, output_dir, llm_module)
+        print(pending)
+
+        if pending:
+            raise RuntimeError("Execution is delayed. Please reexecute the same job later to get the final results.")
 
         if progress_callback:
             progress_callback(0, 0, description="Finishing up...")
     finally:
         llm_module.exec_close()
 
-
     return max_timestamp
 
-def _execute_inner(llm_module, module_args, output_dir, result_name, cache_timeout, argument_combination):
+
+def _execute_inner(run, output_dir, cache_timeout, argument_combination):
+    llm_module = run['llm_module']
+    run_hash = run['run_hash']
+
+    #module_args = dict(run['args']) # Make a copy of the module arguments to avoid modifying the original
+
     prompt_file = os.path.join(output_dir, argument_combination.prompt_file)
-    result_file = os.path.join(output_dir, argument_combination.get_result_file(result_name))
+    result_file = os.path.join(output_dir, argument_combination.get_result_file(run_hash))
+    delayed_file = result_file + '.delayed'
+
+    if os.path.exists(delayed_file):
+        return None
+
     with open(prompt_file, 'r', encoding='utf-8') as file:
         prompt_content = file.read()
 
     if cache_timeout is None:
         cache_timeout = float('inf')
+
+    # Remove sensitive arguments from the output
+    module_args_public = {k: v for k, v in run['args'].items() if not k.startswith('_')}  # FIXME duplicated code
+
+    #timestamp = pd.Timestamp.now().strftime("%Y%m%d%H%M%S")
+    # UTC timestamp
+    timestamp = time.strftime("%Y%m%d%H%M%S", time.gmtime())
+
+    output = {
+            'params': argument_combination._prompt_arguments_masked,
+            'prompt': prompt_content,
+            'module_name': llm_module.__name__,
+            'module_version': llm_module.module_info.get('version', ''),
+            'module_args': module_args_public,
+            'timestamp': timestamp,
+            'app_name': info.APP_NAME,
+            'app_version': info.__version__,
+        }
+
 
     if os.path.exists(result_file):
         cache_age = time.time() - os.path.getmtime(result_file)
@@ -138,34 +230,84 @@ def _execute_inner(llm_module, module_args, output_dir, result_name, cache_timeo
             except json.JSONDecodeError:
                 print(f'{result_file}: cache file is corrupted. Deleting it.')
                 os.remove(result_file)
+            except Exception:
+                print(f'{result_file}: cache file is corrupted.')
+                raise
 
 
     print(f'{prompt_file}: processing')
     t0 = time.time()
-    module_args = dict(module_args)  # Make a copy of the module arguments to avoid modifying the original
-    response = llm_module.exec(prompt_content, **module_args)
+    
+    args = copy.deepcopy(run['args'])  # creating an deepcopy to avoid the llm_module modifying the original arguments
+    response = llm_module.exec(prompt_content, **args)
+
+    if 'delayed' in response:
+        with open(delayed_file, 'w', encoding='utf-8') as file:
+            output['delayed'] = response['delayed']
+            json.dump(output, file)
+
+        return None
+    
     t1 = time.time()
-    #timestamp = pd.Timestamp.now().strftime("%Y%m%d%H%M%S")
-    # UTC timestamp
-    timestamp = time.strftime("%Y%m%d%H%M%S", time.gmtime())
 
-    # Remove sensitive arguments from the output
-    module_args_public = {k: v for k, v in module_args.items() if not k.startswith('_')}  # FIXME duplicated code
+    output['response'] = response['response']
+    output['cost'] = response.get('cost', 0)
+    output['elapsed_time'] = t1 - t0
 
-    output = {
-            'params': argument_combination._prompt_arguments_masked,
-            'prompt': prompt_content,
-            'module_name': llm_module.__name__,
-            'module_version': llm_module.module_info.get('version', ''),
-            'module_args': module_args_public,
-            'response': response['response'],
-            'cost': response.get('cost', None),
-            'elapsed_time': t1 - t0,
-            'timestamp': timestamp,
-            'app_name': info.APP_NAME,
-            'app_version': info.__version__,
-        }
     with open(result_file, 'w', encoding='utf-8') as file:
         json.dump(output, file)
 
     return output
+
+
+def _execute_delayed(run_args, config, output_dir, llm_module):
+    if 'exec_delayed' not in dir(llm_module):
+        # If the module does not support delayed execution, return immediately
+        return None
+    
+    old_delayed_data = {}
+    delayed_params = {}
+    for argument_combination in config.get_parameter_combinations():
+        result_file = os.path.join(output_dir, argument_combination.get_result_file(run_args['run_hash']))
+        delayed_file = result_file + '.delayed'
+        if os.path.exists(delayed_file):
+            with open(delayed_file, 'r', encoding='utf-8') as file:
+                data = json.load(file)
+                old_delayed_data[argument_combination.prompt_hash] = data
+                delayed_params[argument_combination.prompt_hash] = data['delayed']
+
+    new_delayed_data = llm_module.exec_delayed(delayed_params)
+
+    pending = False
+    for argument_combination in config.get_parameter_combinations():
+        result_file = os.path.join(output_dir, argument_combination.get_result_file(run_args['run_hash']))
+        delayed_file = result_file + '.delayed'
+        if os.path.exists(delayed_file):
+
+            new_info = new_delayed_data.get(argument_combination.prompt_hash, None)
+
+
+            if new_info is None:
+                pending = True
+            elif 'delayed' in new_info:
+                pending = True
+
+                # Save delayed data to file
+                with open(delayed_file, 'w', encoding='utf-8') as file:
+                    # Update the old delayed data with the new information - only the 'delayed' key. We keep the rest of the data intact
+                    old_info = old_delayed_data.get(argument_combination.prompt_hash, {})
+                    old_info['delayed'] = new_info['delayed']
+                    json.dump(old_info, file)
+                print("New delayed data saved to file:", delayed_file)
+            else:
+                # If the delayed data is not present, we can remove the file
+                if os.path.exists(delayed_file):
+                    os.remove(delayed_file)
+
+                # Save the new data to the result file
+                with open(result_file, 'w', encoding='utf-8') as file:
+                    old_info = old_delayed_data.get(argument_combination.prompt_hash, {})
+                    new_info = {**old_info, **new_info}
+                    json.dump(new_info, file)
+
+    return pending

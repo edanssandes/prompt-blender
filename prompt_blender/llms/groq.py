@@ -3,6 +3,15 @@ import os
 
 client = None
 
+module_info = {
+    'id': '7b633c8e-697d-4761-98f9-8bbc366ab755',
+    'name': 'Groq',
+    'description': 'Execute Groq models via API.',
+    'version': '1.0.0',
+    'release_date': '2025-07-01',
+    'cache_prefix': 'groq',
+}
+
 def exec_init():
     global client
     client = Groq(api_key="")
@@ -192,6 +201,6 @@ class ConfigPanel(wx.Panel):
 
         self.model_combo.SetValue(value['gpt_model'])
         self.n_spin.SetValue(value['gpt_args'].get('n', 1))
-        self.temperature_slider.SetValue(value['gpt_args'].get('temperature', 1) * 100)
+        self.temperature_slider.SetValue(int(value['gpt_args'].get('temperature', 1) * 100))
         self.json_mode_checkbox.SetValue(value['gpt_json'])
         self.apikey_text.SetValue(value['_api_key'])

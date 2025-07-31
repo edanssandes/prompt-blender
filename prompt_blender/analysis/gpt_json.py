@@ -68,9 +68,6 @@ def extract_json(content):
         if content.startswith("'") and content.endswith("'"):
             data = {'text': content[1:-1]}
 
-    if 'Conforme evidenciado' in content:
-        print("HEY")
-
     try:
             # fourth try
         if data is None:

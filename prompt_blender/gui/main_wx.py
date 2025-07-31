@@ -12,7 +12,8 @@ from prompt_blender.blend import blend_prompt
 from prompt_blender.llms import execute_llm
 from prompt_blender.llms import dummy
 from prompt_blender.gui.progress import ProgressDialog
-from prompt_blender.gui.execute import ExecuteDialog
+#from prompt_blender.gui.execute import ExecuteDialog
+from prompt_blender.gui.run_configurations import RunConfigurationsDialog
 from prompt_blender.gui.preferences import PreferencesDialog, Preferences
 from prompt_blender.gui.input_list import InputListDialog
 
@@ -31,6 +32,7 @@ import shutil
 
 PROJECT_FILE_EXTENSION = "pbp"
 PREFERENCE_FILE = "prompt_blender.config"
+SUPPORTED_ENCODINGS = ["utf-8", "latin1", "windows-1252", "utf-16", "utf-32", "ascii"] 
 
 class MainFrame(wx.Frame):
     TITLE = 'Prompt Blender'
@@ -41,7 +43,6 @@ class MainFrame(wx.Frame):
         #self.data = Model.create_empty()
         self.data = Model.create_from_template()
         self.data.add_on_modified_callback(self.update_project_state)
-        self.result_name = None
         self.last_result_file = None
         self.selected_parameter = None
 
@@ -78,11 +79,21 @@ class MainFrame(wx.Frame):
         self.progress_dialog = ProgressDialog(self, "Progresso da Tarefa")
 
         # Execute dialog
-        self.execute_dialog = ExecuteDialog(self, self.llm_modules)
+        #self.execute_dialog = ExecuteDialog(self, self.llm_modules)
+        #self.run_configurations = []
+        self.execute_dialog = RunConfigurationsDialog(self, self.llm_modules)
+
+        def on_run_configuration_change(run_configurations):
+            self.data.run_configurations = run_configurations
+
+            self.refresh_prompts()
+
+        self.execute_dialog.on_values_changed = on_run_configuration_change
 
         # Preferences dialog
         self.preferences_dialog = PreferencesDialog(self, self.preferences)
 
+        self.reset_view_mode()
         self.populate_data()
 
     def load_images(self):
@@ -141,6 +152,7 @@ class MainFrame(wx.Frame):
         run_menu.AppendSeparator()
         run_menu.Append(3002, "Blend Prompts")
         run_menu.Append(3003, "Export Last Results")
+        run_menu.Append(3004, "Expire Cache")
 
         # Help Menu / About
         help_menu.Append(wx.ID_ABOUT, "About")
@@ -166,6 +178,8 @@ class MainFrame(wx.Frame):
                 self.run_blend()
             elif event_id == 3003:
                 self.export_results()
+            elif event_id == 3004:
+                self.expire_cache()
 
         run_menu.Bind(wx.EVT_MENU, on_run_menu)
 
@@ -198,6 +212,7 @@ class MainFrame(wx.Frame):
             
             self.data.add_on_modified_callback(self.update_project_state)
 
+            self.reset_view_mode()
             self.populate_data()
 
         new_project_menu.Bind(wx.EVT_MENU, on_new_project)
@@ -477,11 +492,15 @@ class MainFrame(wx.Frame):
         dialog = wx.FileDialog(self, "Open Project", wildcard="Prompt Blender Project (*.pbp)|*.pbp", style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST)
         if dialog.ShowModal() == wx.ID_OK:
             path = dialog.GetPath()
-            self.data = Model.create_from_file(path)
-            self.data.add_on_modified_callback(self.update_project_state)
-            self.populate_data()
-            self.preferences.add_recent_file(path, PREFERENCE_FILE)
-            self.update_recent_files()
+            try:
+                self.data = Model.create_from_file(path)
+                self.data.add_on_modified_callback(self.update_project_state)
+                self.reset_view_mode()
+                self.populate_data()
+                self.preferences.add_recent_file(path, PREFERENCE_FILE)
+                self.update_recent_files()
+            except ValueError as e:
+                wx.MessageBox(f"Error loading project: {e}", "Error", wx.OK | wx.ICON_ERROR)
             
     def close_project(self):
         if not self.ask_save_changes():
@@ -489,6 +508,7 @@ class MainFrame(wx.Frame):
         self.data = Model.create_empty()
         self.data.add_on_modified_callback(self.update_project_state)
 
+        self.reset_view_mode()
         self.populate_data()
 
     def add_table_from_directory(self):
@@ -497,11 +517,80 @@ class MainFrame(wx.Frame):
         if dialog.ShowModal() == wx.ID_OK:
             path = dialog.GetPath()
 
-            options = {}
-            options['encoding'] = self.ask_encoding()
+            #options = {}
+            #options['encoding'] = self.ask_encoding()
+            #options['split_count'] = self.ask_split_count()
+            #options['split_length'] = self.ask_split_length()
+
+            options = self.ask_directory_options()
 
             self.data.add_table_from_directory(path, **options)
             self.populate_data()
+
+    def ask_directory_options(self):
+        # Ask, in a single dialog, encoding, split_length (integer) and split_count (-1: last, 0: all, n: first n)
+        dialog = wx.Dialog(self, style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER)
+        dialog_sizer = wx.BoxSizer(wx.VERTICAL)
+        dialog.SetSizer(dialog_sizer)
+        dialog.SetSize((400, 200))
+        dialog.SetTitle("Directory Options")
+        dialog.SetMinSize((400, 200))
+        dialog.SetMaxSize((400, 400))
+        #dialog.SetSizeHints(400, 400, 400, 400)
+        dialog.SetBackgroundColour(wx.SystemSettings.GetColour(wx.SYS_COLOUR_WINDOW))
+        dialog.SetForegroundColour(wx.SystemSettings.GetColour(wx.SYS_COLOUR_WINDOWTEXT))
+        dialog.SetFont(wx.Font(10, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL))
+        # Encoding
+        encodings = ["utf-8", "latin1", "windows-1252", "utf-16", "utf-32", "ascii"]
+        encodings.sort()
+        default_encoding = "utf-8"
+        encoding_label = wx.StaticText(dialog, label="Encoding:")
+        encoding_choice = wx.Choice(dialog, choices=encodings)
+        encoding_choice.SetSelection(encodings.index(default_encoding))
+        dialog_sizer.Add(encoding_label, 0, wx.ALL, 5)
+        dialog_sizer.Add(encoding_choice, 0, wx.EXPAND | wx.ALL, 5)
+        # Split length
+        split_length_label = wx.StaticText(dialog, label="Split Length (bytes):")
+        split_length_text = wx.TextCtrl(dialog, value="8000000")  # Default value
+        dialog_sizer.Add(split_length_label, 0, wx.ALL, 5)
+        dialog_sizer.Add(split_length_text, 0, wx.EXPAND | wx.ALL, 5)
+        # Split count
+        split_count_label = wx.StaticText(dialog, label="Maximum split Count (0: all, n: first n, -n: last n):")
+
+        split_count_text = wx.TextCtrl(dialog, value="0")  # Default value
+        dialog_sizer.Add(split_count_label, 0, wx.ALL, 5)
+
+        dialog_sizer.Add(split_count_text, 0, wx.EXPAND | wx.ALL, 5)
+        # Buttons
+        button_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        ok_button = wx.Button(dialog, wx.ID_OK, label="OK")
+        cancel_button = wx.Button(dialog, wx.ID_CANCEL, label="Cancel")
+        button_sizer.Add(ok_button, 0, wx.ALL, 5)
+        button_sizer.Add(cancel_button, 0, wx.ALL, 5)
+        dialog_sizer.Add(button_sizer, 0, wx.ALIGN_CENTER)
+        dialog_sizer.AddStretchSpacer()
+        dialog_sizer.AddSpacer(10)
+        dialog.SetSizer(dialog_sizer)
+        dialog.Layout()
+        # Show the dialog
+        if dialog.ShowModal() == wx.ID_OK:
+            encoding = encoding_choice.GetStringSelection()
+            try:
+                split_length = int(split_length_text.GetValue())
+                split_count = int(split_count_text.GetValue())
+            except ValueError:
+                wx.MessageBox("Invalid split length or count. Please enter valid integers.", "Error", wx.OK | wx.ICON_ERROR)
+                return None
+            
+            dialog.Destroy()
+            return {'encoding': encoding, 
+                    'split_length': split_length, 
+                    'split_count': split_count}
+        else:
+            dialog.Destroy()
+            return None
+
+
 
     def add_table_from_file(self):
         # txt, xlsx, csv, xls
@@ -528,7 +617,7 @@ class MainFrame(wx.Frame):
 
     def ask_encoding(self):
         # Show combobox with most common encodings
-        encodings = ["utf-8", "latin1", "windows-1252", "utf-16", "utf-32", "ascii"] 
+        encodings = SUPPORTED_ENCODINGS
         encodings.sort()
         default_encoding = "utf-8"
 
@@ -593,6 +682,16 @@ class MainFrame(wx.Frame):
         item = self.tree.GetSelection()
         if item.IsOk():
             param_id, param_key = self.tree.GetItemData(item)
+
+            # Ask for confirmation
+            if param_key is not None:
+                param_label = f'"{param_key}" (child of {param_id})'
+            else:
+                param_label = f'"{param_id}" (and all its children)'
+            ret = wx.MessageBox(f"Are you sure you want to remove the selected item?\nName: {param_label}", "Confirmation", wx.YES_NO | wx.ICON_QUESTION)
+            if ret != wx.YES:
+                return
+
             if param_key is None:
                 self.data.remove_param(param_id)
             else:
@@ -636,9 +735,18 @@ class MainFrame(wx.Frame):
         self.populate_table(self.data, self.selected_parameter)
         self.populate_notebook(self.data)
         self.update_project_state()
+        self.update_run_configurations()
 
         # Remove focus from any control
         self.SetFocus()
+
+    def reset_view_mode(self):
+        self.view_mode.SetSelection(0)
+
+    def update_run_configurations(self):
+        # Update the run configurations dialog with the current data
+        print(self.data.run_configurations)
+        self.execute_dialog.set_configurations(self.data.run_configurations)
 
     def update_project_state(self):
         # Set Title
@@ -693,8 +801,12 @@ class MainFrame(wx.Frame):
                 self.preferences.remove_recent_file(file, PREFERENCE_FILE)
                 self.update_recent_files()
                 return
+            except ValueError as e:
+                wx.MessageBox(f"Error loading project: {e}", "Error", wx.OK | wx.ICON_ERROR)
+                return
             
             self.data.add_on_modified_callback(self.update_project_state)
+            self.reset_view_mode()
             self.populate_data()
 
         self.Bind(wx.EVT_MENU, on_recent_file, id=2000, id2=2000 + len(self.preferences.recent_files))
@@ -846,15 +958,12 @@ class MainFrame(wx.Frame):
         hbox = wx.BoxSizer(wx.HORIZONTAL)
 
         # Add "View Mode" choice list on the left of the hbox
-        self.view_mode = wx.Choice(panel, choices=["Edit Mode", "View Prompt", "Debug Result"])
+        self.view_mode = wx.Choice(panel, choices=["Edit Mode", "View Prompt", "Debug Cache"])
         hbox.Add(self.view_mode, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 5)
         self.view_mode.SetSelection(0)
 
-        # bind the checkbox event. Port from tkinter to wxpython
+        # bind the checkbox event. 
         def on_view_mode(event):
-            for prompt_page in self.prompt_pages:
-                prompt_page.view_mode = self.view_mode.GetSelection()
-            
             self.refresh_prompts()
 
         self.view_mode.Bind(wx.EVT_CHOICE, on_view_mode)
@@ -915,10 +1024,28 @@ class MainFrame(wx.Frame):
         output_dir = self.preferences.cache_dir
         blend_prompt(config, output_dir, self.progress_dialog.update_progress)
 
+    def expire_cache(self):
+        # Ask for confirmation
+        ret = wx.MessageBox("Are you sure you want to expire the cache?\nThis will remove all cached results for this execution.", "Confirmation", wx.YES_NO | wx.ICON_QUESTION)
+        if ret != wx.YES:
+            return
+        
+        # Expire the cache
+        config = Config.load_from_dict(self.data.to_dict())
+        output_dir = self.preferences.cache_dir
+        run_args = self.get_run_args()
+
+        for _, run in run_args.items():
+            execute_llm.expire_cache(run, config, output_dir, cache_timeout=0)#, progress_callback=self.progress_dialog.update_progress)
+
+        wx.MessageBox("Cache expired successfully.", "Success", wx.OK | wx.ICON_INFORMATION)
+
 
     def task_all(self):
-        llm_module = self.execute_dialog.get_selected_module()
-        cache_timeout = self.execute_dialog.get_cache_timeout()
+        #llm_module = self.execute_dialog.get_selected_module()
+        #cache_timeout = self.execute_dialog.get_cache_timeout()
+        #print('Task All', llm_module)
+        cache_timeout = None
 
         self.last_result_file = None
         wx.CallAfter(self.update_project_state)
@@ -929,55 +1056,88 @@ class MainFrame(wx.Frame):
         blend_prompt(config, output_dir)
         
         # Execute the LLM
-        module_args = self.execute_dialog.get_module_args()
+        #module_args = self.execute_dialog.get_module_args()
 
-        # Remove private arguments (starting with '_') from the module arguments. They may contain sensitive information (e.g. API keys/secrets)
-        module_args_public = {k: v for k, v in module_args.items() if not k.startswith('_')}  # FIXME duplicated code
-        # Hash the module arguments to create a unique identifier for the execution
-        hash_args = hashlib.md5(json.dumps(module_args_public, sort_keys=True).encode()).hexdigest()
+        # Each run configuration is a module with its own arguments
+        # The results are stored in a dictionary with the run configuration name as key
+        analysis_results = {}
+        cache_prefixes = {}
+        run_args = self.get_run_args()
 
-        # Get only the module name
-        module_name = llm_module.__name__.split('.')[-1]
-        self.result_name = f'{module_name}_{hash_args}'
+        for name, run in run_args.items():
 
-        try:
-            max_cost = self.preferences.max_cost
-            timestamp = execute_llm.execute_llm(llm_module, module_args, config, output_dir, self.result_name, progress_callback=self.progress_dialog.update_progress, cache_timeout=cache_timeout, max_cost=max_cost)
-            if not self.progress_dialog.running:
-                self.interrupted = True
+            try:
+                max_cost = self.preferences.max_cost
+                timestamp = execute_llm.execute_llm(run, config, output_dir, progress_callback=self.progress_dialog.update_progress, cache_timeout=cache_timeout, max_cost=max_cost)
+                if not self.progress_dialog.running:
+                    self.interrupted = True
+                    break
 
-            analysis_results = analyse_results.analyse_results(config, output_dir, self.result_name, self.analyse_functions)
+                ret = analyse_results.analyse_results(run, config, output_dir, self.analyse_functions)
+                analysis_results[name] = ret
 
-        except Exception as e:
-            self.execute_error = str(e)
-            wx.CallAfter(self.execution_done)
-            
-            # print stack trace
-            import traceback
-            traceback.print_exc()
-            return
+            except Exception as e:
+                self.execute_error = str(e)
+                wx.CallAfter(self.execution_done)
+                
+                # print stack trace
+                import traceback
+                traceback.print_exc()
+                return
 
+        hash_caches = hashlib.md5(json.dumps(cache_prefixes, sort_keys=True).encode()).hexdigest()
+
+        # Merge all analysis results into a single dictionary. Parameter "_run" will be added to each result
+        merged_analysis_results = {}
+        for run_name, analysis in analysis_results.items():
+            for module_name, results in analysis.items():
+                if module_name not in merged_analysis_results:
+                    merged_analysis_results[module_name] = []
+                for result in results:
+                    result['_run'] = run_name
+                    merged_analysis_results[module_name].append(result)
+
+        # Include all prompts
+        merged_analysis_results['prompts'] = []
+        merged_analysis_results['runs'] = []
+
+        for k,v in config.enabled_prompts.items():
+            merged_analysis_results['prompts'].append({
+                'Prompt Name': k, 
+                'Template': v
+            })
+        for name, run in run_args.items():
+            merged_analysis_results['runs'].append({
+                'Run Name': name, 
+                'Module Name': run['module_name'],
+                'Module ID': run['module_info'].get('id', 'Unknown'),
+                'Run Hash': run['run_hash'],
+                'Module Description': run['module_info'].get('description', 'Unknown'),
+                'Module Version': run['module_info'].get('version', 'Unknown'),
+                'Arguments': json.dumps(run['args'], indent=4)
+            })
 
         # The zipfile name is the result name with the timestamp
-        zipfile_name = f'{self.result_name}_{timestamp}.zip'
+        zipfile_name = f'{hash_caches}_{timestamp}.zip'
 
         # Create the final zip file
         last_result_file = os.path.join(output_dir, zipfile_name)
         with zipfile.ZipFile(last_result_file, 'w') as zipf:
             byteio = io.BytesIO()
             with pd.ExcelWriter(byteio, engine="xlsxwriter") as writer:
-                for module_name, results in analysis_results.items():
-                    if results:
-                        df = pd.DataFrame(results)
-                        df.to_excel(writer, sheet_name=module_name, index=False)
+                for run, analysis in merged_analysis_results.items():
+                    for module_name, results in merged_analysis_results.items():
+                        if results:
+                            df = pd.DataFrame(results)
+                            df.to_excel(writer, sheet_name=module_name, index=False)
 
             byteio.seek(0)
             zipf.writestr(f'result.xlsx', byteio.read())
 
 
             # Add the config file to the zip
-            zipf.writestr('config.json', json.dumps(config.json))
-            zipf.writestr('execution.json', json.dumps({'module': llm_module.__name__, 'args': module_args_public}))
+            zipf.writestr('config.pbp', json.dumps(config.json))
+            #zipf.writestr('execution.json', json.dumps({'module': llm_module.__name__, 'args': module_args_public}))
 
             # This set keeps track of the result files that are already in the zip
             result_files = set()
@@ -985,24 +1145,47 @@ class MainFrame(wx.Frame):
             # Add the prompt files and result files to the zip
             for argument_combination in config.get_parameter_combinations():
                 prompt_file = os.path.join(output_dir, argument_combination.prompt_file)
-                result_file = os.path.join(output_dir, argument_combination.get_result_file(self.result_name))
+                zipf.write(prompt_file, os.path.relpath(prompt_file, output_dir))
+                for run in run_args.values():
+                    result_file = os.path.join(output_dir, argument_combination.get_result_file(run['run_hash']))
 
-                if result_file not in result_files:
-                    zipf.write(prompt_file, os.path.relpath(prompt_file, output_dir))
+                    if result_file not in result_files:
 
-                    full_result_file = os.path.join(output_dir, result_file)
-                    if os.path.exists(full_result_file):
-                        zipf.write(full_result_file, os.path.relpath(full_result_file, output_dir))
+                        full_result_file = os.path.join(output_dir, result_file)
+                        if os.path.exists(full_result_file):
+                            zipf.write(full_result_file, os.path.relpath(full_result_file, output_dir))
+                            result_files.add(result_file)
+                        else:
+                            if not self.interrupted:
+                                print(f"Warning: Result file {result_file} not found")
                         result_files.add(result_file)
-                    else:
-                        if not self.interrupted:
-                            print(f"Warning: Result file {result_file} not found")
-                    result_files.add(result_file)
 
         self.last_result_file = last_result_file
         wx.CallAfter(self.update_project_state)
 
         wx.CallAfter(self.execution_done)
+
+    def get_run_args(self):
+        run_args = {}
+
+        for name, run_configuration in self.data.run_configurations.items():
+            llm_module = self.llm_modules[run_configuration['module_id']]
+
+            module_info = llm_module.module_info
+            module_name = module_info['name']
+            args = run_configuration['module_args']
+            hash_args = hashlib.md5(json.dumps(args, sort_keys=True).encode()).hexdigest()
+            run_hash = f'{module_info["cache_prefix"]}_{hash_args}'
+
+            run_args[name] = {
+                'llm_module': llm_module,
+                'module_info': module_info,
+                'module_name': module_name,
+                'args': args,
+                'run_hash': run_hash
+            }
+            
+        return run_args
 
        
     def execution_done(self):
@@ -1169,10 +1352,13 @@ class MainFrame(wx.Frame):
 
 
     def refresh_prompts(self):
+        run_hashes = {run_name: run_args['run_hash'] 
+                      for run_name, run_args in self.get_run_args().items()}
 
         for idx, prompt_page in enumerate(self.prompt_pages):
-            prompt_page.result_name = self.result_name  # FIXME: This is a hack. Should be done in a better way
-            prompt_page.output_dir = self.preferences.cache_dir  # FIXME: same as above
+            prompt_page.view_mode = self.view_mode.GetSelection()
+            prompt_page.run_hashes = run_hashes
+            prompt_page.output_dir = self.preferences.cache_dir  # FIXME: this should be made in a better way
 
             prompt_page.refresh()
 
@@ -1293,7 +1479,7 @@ class PromptPage(wx.Panel):
         elif self.view_mode == 1:
             text = self.data.get_interpolated_prompt(self.prompt_name)
         elif self.view_mode == 2:
-            text = self.data.get_result(self.prompt_name, self.output_dir, self.result_name)
+            text = self.data.get_result(self.prompt_name, self.output_dir, self.run_hashes)
 
             # Try format the text as json, with identation. Otherwise, just show the text
             try:

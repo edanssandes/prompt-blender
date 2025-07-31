@@ -132,8 +132,8 @@ class ParameterCombination:
 
         # Calculate non-cryptographic hash of the prompt content
         # sha1 cryptographic hash of the prompt content
-        prompt_hash = hashlib.sha1(self._prompt_content.encode()).hexdigest()
-        filepath = os.path.join('cache', prompt_hash[:2], prompt_hash)
+        self._prompt_hash = hashlib.sha1(self._prompt_content.encode()).hexdigest()
+        filepath = os.path.join('cache', self._prompt_hash[:2], self._prompt_hash)
 
         self._prompt_arguments = prompt_arguments
         self._prompt_arguments_masked = prompt_arguments_masked
@@ -152,12 +152,17 @@ class ParameterCombination:
     def missing_argument(self):
         return self._missing_argument
     
-    def get_result_file(self, result_name: str):
-        return os.path.join(self._filepath, f'result_{result_name}.json')
+    def get_result_file(self, run_hash: str):
+        return os.path.join(self._filepath, f'result_{run_hash}.json')
 
     @property
     def filepath(self):
         return self._filepath
+    
+    @property
+    def prompt_hash(self):
+        return self._prompt_hash
+        
 
 
         
