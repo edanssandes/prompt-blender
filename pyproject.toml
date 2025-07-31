@@ -23,8 +23,6 @@ dependencies = [
   "dotenv>=0.9.9",
   "psutil>=7.0.0",
   "screeninfo>=0.8.1",
-  "langchain-openai>=0.3.14",
-  "playwright>=1.51.0",
   "XlsxWriter>=3.2.3",
   "uuid7==0.1.0",
 ]
@@ -40,6 +38,14 @@ classifiers = [
   "Development Status :: 4 - Beta",
   "Programming Language :: Python"
 ]
+
+[project.optional-dependencies]
+browseruse = [
+  "browser-use==0.1.48",
+  "playwright>=1.51.0",
+  "langchain-openai>=0.3.14" # ou outras libs associadas
+]
+
 
 [project.urls]
 Repository = "https://github.com/edanssandes/prompt-blender"
