@@ -24,7 +24,8 @@ dependencies = [
   "psutil>=7.0.0",
   "screeninfo>=0.8.1",
   "langchain-openai>=0.3.14",
-  "playwright>=1.51.0"
+  "playwright>=1.51.0",
+  "XlsxWriter>=3.2.3",
 ]
 requires-python = ">=3.11"
 authors = [
