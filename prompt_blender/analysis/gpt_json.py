@@ -14,7 +14,9 @@ analyse_info = {
 def analyse(response, timestamp):
     analysis = []
 
-    for choice in response['choices']:
+    multiple_choices = len(response['choices']) > 1
+
+    for idx_choice, choice in enumerate(response['choices']):
         content = choice['message']['content']
 
         try:
@@ -28,6 +30,12 @@ def analyse(response, timestamp):
                 data['_extra'] = extra
 
             data['_timestamp'] = timestamp
+
+            if multiple_choices:
+                if '_extra' not in data:
+                    data['_extra'] = {}
+                data['_extra']['_choice'] = idx_choice
+
             analysis.append(data)
         except ValueError as e:
             analysis.append({'_error': str(e), '_raw': content, '_timestamp': timestamp})

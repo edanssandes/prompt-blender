@@ -45,6 +45,9 @@ def analyse(response, timestamp):
     elif response['model'] == 'gpt-4.1-mini-2025-04-14':
         cost_in = 0.40
         cost_out = 1.60
+    elif response['model'] == 'gpt-5-mini-2025-08-07':
+        cost_in = 0.25
+        cost_out = 2.00
     else:
         cost_in = 0.00
         cost_out = 0.00

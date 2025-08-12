@@ -152,7 +152,12 @@ class MainFrame(wx.Frame):
         run_menu.AppendSeparator()
         run_menu.Append(3002, "Blend Prompts")
         run_menu.Append(3003, "Export Last Results")
-        run_menu.Append(3004, "Expire Cache")
+        
+        # Split "Expire Cache" into submenu
+        expire_cache_menu = wx.Menu()
+        expire_cache_menu.Append(3004, "Current Item")
+        expire_cache_menu.Append(3005, "All Items")
+        run_menu.AppendSubMenu(expire_cache_menu, "Expire Cache")
 
         # Help Menu / About
         help_menu.Append(wx.ID_ABOUT, "About")
@@ -179,7 +184,9 @@ class MainFrame(wx.Frame):
             elif event_id == 3003:
                 self.export_results()
             elif event_id == 3004:
-                self.expire_cache()
+                self.expire_cache(current_item_only=True)
+            elif event_id == 3005:
+                self.expire_cache(current_item_only=False)
 
         run_menu.Bind(wx.EVT_MENU, on_run_menu)
 
@@ -529,17 +536,14 @@ class MainFrame(wx.Frame):
 
     def ask_directory_options(self):
         # Ask, in a single dialog, encoding, split_length (integer) and split_count (-1: last, 0: all, n: first n)
-        dialog = wx.Dialog(self, style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER)
+        dialog = wx.Dialog(self, style=wx.DEFAULT_DIALOG_STYLE)
         dialog_sizer = wx.BoxSizer(wx.VERTICAL)
         dialog.SetSizer(dialog_sizer)
-        dialog.SetSize((400, 200))
         dialog.SetTitle("Directory Options")
-        dialog.SetMinSize((400, 200))
-        dialog.SetMaxSize((400, 400))
-        #dialog.SetSizeHints(400, 400, 400, 400)
         dialog.SetBackgroundColour(wx.SystemSettings.GetColour(wx.SYS_COLOUR_WINDOW))
         dialog.SetForegroundColour(wx.SystemSettings.GetColour(wx.SYS_COLOUR_WINDOWTEXT))
         dialog.SetFont(wx.Font(10, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL))
+
         # Encoding
         encodings = ["utf-8", "latin1", "windows-1252", "utf-16", "utf-32", "ascii"]
         encodings.sort()
@@ -549,18 +553,19 @@ class MainFrame(wx.Frame):
         encoding_choice.SetSelection(encodings.index(default_encoding))
         dialog_sizer.Add(encoding_label, 0, wx.ALL, 5)
         dialog_sizer.Add(encoding_choice, 0, wx.EXPAND | wx.ALL, 5)
+
         # Split length
         split_length_label = wx.StaticText(dialog, label="Split Length (bytes):")
         split_length_text = wx.TextCtrl(dialog, value="8000000")  # Default value
         dialog_sizer.Add(split_length_label, 0, wx.ALL, 5)
         dialog_sizer.Add(split_length_text, 0, wx.EXPAND | wx.ALL, 5)
+
         # Split count
         split_count_label = wx.StaticText(dialog, label="Maximum split Count (0: all, n: first n, -n: last n):")
-
         split_count_text = wx.TextCtrl(dialog, value="0")  # Default value
         dialog_sizer.Add(split_count_label, 0, wx.ALL, 5)
-
         dialog_sizer.Add(split_count_text, 0, wx.EXPAND | wx.ALL, 5)
+
         # Buttons
         button_sizer = wx.BoxSizer(wx.HORIZONTAL)
         ok_button = wx.Button(dialog, wx.ID_OK, label="OK")
@@ -568,10 +573,15 @@ class MainFrame(wx.Frame):
         button_sizer.Add(ok_button, 0, wx.ALL, 5)
         button_sizer.Add(cancel_button, 0, wx.ALL, 5)
         dialog_sizer.Add(button_sizer, 0, wx.ALIGN_CENTER)
-        dialog_sizer.AddStretchSpacer()
         dialog_sizer.AddSpacer(10)
-        dialog.SetSizer(dialog_sizer)
+
+        # Fit dialog to content and set fixed size
+        dialog.Fit()
+        dialog.SetMinSize(dialog.GetSize())
+        dialog.SetMaxSize(dialog.GetSize())
+        dialog.SetSize(dialog.GetSize())
         dialog.Layout()
+
         # Show the dialog
         if dialog.ShowModal() == wx.ID_OK:
             encoding = encoding_choice.GetStringSelection()
@@ -580,17 +590,16 @@ class MainFrame(wx.Frame):
                 split_count = int(split_count_text.GetValue())
             except ValueError:
                 wx.MessageBox("Invalid split length or count. Please enter valid integers.", "Error", wx.OK | wx.ICON_ERROR)
+                dialog.Destroy()
                 return None
-            
+
             dialog.Destroy()
-            return {'encoding': encoding, 
-                    'split_length': split_length, 
+            return {'encoding': encoding,
+                    'split_length': split_length,
                     'split_count': split_count}
         else:
             dialog.Destroy()
             return None
-
-
 
     def add_table_from_file(self):
         # txt, xlsx, csv, xls
@@ -1024,9 +1033,13 @@ class MainFrame(wx.Frame):
         output_dir = self.preferences.cache_dir
         blend_prompt(config, output_dir, self.progress_dialog.update_progress)
 
-    def expire_cache(self):
+    def expire_cache(self, current_item_only):
         # Ask for confirmation
-        ret = wx.MessageBox("Are you sure you want to expire the cache?\nThis will remove all cached results for this execution.", "Confirmation", wx.YES_NO | wx.ICON_QUESTION)
+        if current_item_only:
+            ret = wx.MessageBox("Are you sure you want to expire the cache?\nThis will remove the cached results for the current selected item.", "Confirmation", wx.YES_NO | wx.ICON_QUESTION)
+        else:
+            ret = wx.MessageBox("Are you sure you want to expire the cache?\nThis will remove ALL cached results for this execution.", "Confirmation", wx.YES_NO | wx.ICON_QUESTION)
+    
         if ret != wx.YES:
             return
         
@@ -1036,7 +1049,13 @@ class MainFrame(wx.Frame):
         run_args = self.get_run_args()
 
         for _, run in run_args.items():
-            execute_llm.expire_cache(run, config, output_dir, cache_timeout=0)#, progress_callback=self.progress_dialog.update_progress)
+            if not current_item_only:
+                current_combinations = None
+            else:
+                prompt_name = self.prompt_pages[self.notebook.GetSelection()].title
+                current_combinations = [self.data.get_current_combination(prompt_name)]
+
+            execute_llm.expire_cache(run, config, output_dir, cache_timeout=0, combinations=current_combinations)#, progress_callback=self.progress_dialog.update_progress)
 
         wx.MessageBox("Cache expired successfully.", "Success", wx.OK | wx.ICON_INFORMATION)
 

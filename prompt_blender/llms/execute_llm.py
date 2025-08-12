@@ -61,7 +61,7 @@ def load_modules(paths):
     return modules
 
 
-def expire_cache(run_args, config, output_dir, cache_timeout=None, progress_callback=None):
+def expire_cache(run_args, config, output_dir, cache_timeout=None, progress_callback=None, combinations=None):
     """
     Expire the cache for the given run arguments and configuration.
     
@@ -85,7 +85,10 @@ def expire_cache(run_args, config, output_dir, cache_timeout=None, progress_call
         else:
             return True
 
-    for argument_combination in config.get_parameter_combinations(callback):
+    if combinations is None:
+        combinations = config.get_parameter_combinations(callback)
+
+    for argument_combination in combinations:
         result_file = os.path.join(output_dir, argument_combination.get_result_file(run_args['run_hash']))
         delayed_file = result_file + '.delayed'
         print("EXPIRING", result_file, delayed_file)

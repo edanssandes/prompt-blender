@@ -133,6 +133,23 @@ def exec_delayed(delayed_content: dict):
         print(batch)
         if batch.status != "completed":
             print(f"Batch {batch_id} is not completed yet.")
+        elif batch.output_file_id is None and batch.error_file_id is not None:
+            print(f"Batch {batch_id} has errors.")
+            error_response = client.files.content(batch.error_file_id)
+            error_data = error_response.text
+            print(error_data)
+            for line in error_data.splitlines():
+                response_dump = json.loads(line)
+                response = response_dump['response']['body']
+                custom_id = response_dump['custom_id']
+                new_delayed_content[custom_id] = {
+                    'response': response,
+                    'error': response['error']['type'],
+                    'batch_id': batch_id,
+                }
+            # Delete the batch input file because we don't need it anymore
+            client.files.delete(batch.input_file_id)
+            client.files.delete(batch.error_file_id)
         else:
             # Retrieve the file content
             print(batch.output_file_id)
@@ -162,11 +179,12 @@ def exec_delayed(delayed_content: dict):
             client.files.delete(batch.input_file_id)
 
     if jsonl_file_content:
+        show_batch_warning(jsonl_file_content)
+        
         # Create a JSONL file-like object
         jsonl_str = '\n'.join([json.dumps(item) for item in jsonl_file_content])
         jsonl_file_io = io.BytesIO(jsonl_str.encode("utf-8")) 
 
-        show_batch_warning()
 
         batch_input_file = client.files.create(
             file=jsonl_file_io,
@@ -194,10 +212,10 @@ def exec_close():
     global client
     client = None
 
-def show_batch_warning():
+def show_batch_warning(jsonl_file_content):
     # Ask Continue or Abort
-    msg = "Batch processing is experimental and the cost of the batch cannot be tracked. Do you want to continue?"
-    dlg = wx.MessageDialog(None, msg, "Batch Processing Warning", wx.YES_NO | wx.ICON_WARNING)
+    msg = "Batch processing is experimental and the cost of the batch cannot be tracked.\n\nDo you want to continue?"
+    dlg = wx.MessageDialog(None, msg, f"Batch Processing Warning - {len(jsonl_file_content)} item(s)", wx.YES_NO | wx.ICON_WARNING)
     result = dlg.ShowModal()
     dlg.Destroy()
     if result == wx.ID_NO:
@@ -237,6 +255,9 @@ def get_cost(response):  # FIXME duplicated code
     elif response['model'] == 'gpt-4.1-mini-2025-04-14':
         cost_in = 0.40
         cost_out = 1.60
+    elif response['model'] == 'gpt-5-mini-2025-08-07':
+        cost_in = 0.25
+        cost_out = 2.00        
     else:
         cost_in = 0
         cost_out = 0
@@ -272,7 +293,7 @@ class ConfigPanel(wx.Panel):
         # Model name combo box
         self.model_label = wx.StaticText(self, label="Model Name:")
         vbox.Add(self.model_label, flag=wx.LEFT | wx.TOP, border=5)
-        model_choices = ["gpt-4o-mini", "gpt-4o", "gpt-4-turbo", "gpt-3.5-turbo", "gpt-4o-mini-search-preview", "gpt-4.1-nano", "gpt-4.1-mini"]  # Add more models as needed
+        model_choices = ["gpt-4o-mini", "gpt-4o", "gpt-4-turbo", "gpt-3.5-turbo", "gpt-4o-mini-search-preview", "gpt-4.1-nano", "gpt-4.1-mini", "gpt-5-mini", "gpt-5-nano"]  # Add more models as needed
         self.model_combo = wx.ComboBox(self, choices=model_choices, style=wx.CB_DROPDOWN)
         self.model_combo.SetValue(DEFAULT_MODEL)  # Set the default value
         vbox.Add(self.model_combo, flag=wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, border=5)

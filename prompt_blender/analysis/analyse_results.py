@@ -115,8 +115,19 @@ def analyse_results(run, config, output_dir, analyse_functions):
 
                         # Check if the key is in the dictionary and the value is a list in every item
                         if all(list(x.keys())[0] in possible_keys and isinstance(list(x.values())[0], list) for x in r):
-                            # TODO Need to expand extras parameters 
-                            r = [y for x in r for y in list(x.values())[0]]
+                            new_r = []
+                            for x, timestamp, extra in zip(r, timestamps, extras):
+                                # Flatten the list of dictionaries
+                                l = list(x.values())[0]
+
+                                # Restore extra and timestamp fields if they exist
+                                if extra:
+                                    l = [dict(item, **extra) for item in l]
+                                if timestamp:
+                                    l = [dict(item, _timestamp=timestamp) for item in l]
+                                new_r.extend(l)
+                                
+                            r = new_r
 
                     # add the input arguments to the response
                     for x in r:

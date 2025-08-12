@@ -113,7 +113,8 @@ class ParameterCombination:
             if not id:
                 prompt_arguments_masked.update(values)
             else:
-                prompt_arguments_masked.update({k:id for k,v in values.items()})
+                prompt_arguments_masked.update({k: (id if isinstance(v, str) else v)
+                                                for k,v in values.items()})
 
 
 
@@ -128,6 +129,11 @@ class ParameterCombination:
             self._prompt_content = None
             self._missing_argument = [str(e)]
             return  # TODO Test this case when we delete a parameter after validating the prompt content
+        except Exception as e:
+            print(f'Error: {e}')
+            print('Please, check the prompt file and the input arguments.')
+            raise
+        
 
 
         # Calculate non-cryptographic hash of the prompt content

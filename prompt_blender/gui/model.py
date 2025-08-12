@@ -404,10 +404,10 @@ class Model:
                               for i in range(0, len(text), split_length)]
                 for i, chunk in enumerate(chunks):
                     param.append(
-                            {'_id': f"{file}_part_{i:03}", 'document_text': chunk})
+                            {'_id': f"{file}_part_{i:03}", 'document_text': chunk, 'document_size': len(chunk)})
             else:
                 param.append(
-                        {'_id': file, 'document_text': text})
+                        {'_id': file, 'document_text': text, 'document_size': len(text)})
                 
         if not split_count:
             return param
@@ -562,16 +562,26 @@ class Model:
 
         return tag_positions, new_text
 
+
+    def get_current_combination(self, prompt_name):
+        config = Config.load_from_dict(self.data)
+        combination = config.get_parameter_combination(prompt_name, self.get_selected_values())
+        return combination
+
+    def get_result_files(self, prompt_name, output_dir, run_hashes):
+        combination = self.get_current_combination(prompt_name)
+        
+        return {run_name: os.path.join(output_dir, combination.get_result_file(run_hash)) 
+                for run_name, run_hash in run_hashes.items()}
+
+
     def get_result(self, prompt_name, output_dir, run_hashes):
 
-        config = Config.load_from_dict(self.data)
-        combination = config.get_parameter_combination(
-            prompt_name, self.get_selected_values())
+        result_files = self.get_result_files(prompt_name, output_dir, run_hashes)
         
         results = {}
 
-        for run_name, run_hash in run_hashes.items():        
-            result_file = os.path.join(output_dir, combination.get_result_file(run_hash))
+        for run_name, result_file in result_files.items():        
             result_content_json = None
             if os.path.exists(result_file):
                 with open(result_file, 'r', encoding='utf-8') as file:
