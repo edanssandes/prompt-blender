@@ -108,7 +108,7 @@ def exec(prompt, gpt_model, gpt_args, gpt_json, batch_mode, web_search):
                     "image_url": image,
                 })
 
-    print(json.dumps(content, indent=2, ensure_ascii=False))
+    #print(json.dumps(content, indent=2, ensure_ascii=False))
 
 
     messages = [
