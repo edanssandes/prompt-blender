@@ -179,7 +179,7 @@ def execute_llm(run_args, config, output_dir, cache_timeout=None, progress_callb
         print(pending)
 
         if pending:
-            raise RuntimeError("Execution is delayed. Please reexecute the same job later to get the final results.")
+            raise RuntimeError(f"There {('is', 'are')[pending>1]} {pending} pending results in asynchronous execution. Please, run again later to get the final results.")
 
         if progress_callback:
             progress_callback(0, 0, description="Finishing up...")
@@ -292,7 +292,7 @@ def _execute_delayed(run_args, config, output_dir, llm_module):
 
     new_delayed_data = llm_module.exec_delayed(delayed_params)
 
-    pending = False
+    pending = 0
     for argument_combination in config.get_parameter_combinations():
         result_file = os.path.join(output_dir, argument_combination.get_result_file(run_args['run_hash']))
         delayed_file = result_file + '.delayed'
@@ -302,9 +302,9 @@ def _execute_delayed(run_args, config, output_dir, llm_module):
 
 
             if new_info is None:
-                pending = True
+                pending += 1
             elif 'delayed' in new_info:
-                pending = True
+                pending += 1
 
                 # Save delayed data to file
                 with open(delayed_file, 'w', encoding='utf-8') as file:
