@@ -1,5 +1,6 @@
 from openai import OpenAI
 import os
+import re
 import io
 import json
 import wx
@@ -55,8 +56,14 @@ def get_args(args=None):
 
 
 def exec(prompt, gpt_model, gpt_args, gpt_json, batch_mode, web_search):
-    messages = []
-    messages.append({"role": "user", "content": prompt})
+
+
+    # extract "[data:image/\w+?;base64,{base64 data}]" from the prompt. Convert each occurence to [img1] [img2]
+    images = []
+    if prompt is not None:
+        images = re.findall(r'\[(data:image/\w+?;base64,[A-Za-z0-9+/=]+)\]', prompt)
+        for idx, img in enumerate(images):
+            prompt = prompt.replace(f'{img}', f'img{idx + 1:02d}')
 
     api_type = 'chat_completion_api'
 
@@ -85,6 +92,28 @@ def exec(prompt, gpt_model, gpt_args, gpt_json, batch_mode, web_search):
 
     if web_search:
         api_type = 'response_api'
+
+    if api_type == 'chat_completion_api':
+        content = [{"type": "text", "text": prompt},]
+        for image in images:
+            content.append({
+                    "type": "image_url",
+                    "image_url": {"url": image}
+                })
+    else:
+        content = [{"type": "input_text", "text": prompt}]
+        for image in images:
+            content.append({
+                    "type": "input_image",
+                    "image_url": image,
+                })
+
+    print(json.dumps(content, indent=2, ensure_ascii=False))
+
+
+    messages = [
+        {"role": "user", "content": content}
+    ]
 
 
     if batch_mode:

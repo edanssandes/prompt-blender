@@ -2,6 +2,7 @@ import re
 import os
 import pyperclip
 import json
+import base64
 import tempfile
 import pandas as pd
 from collections import defaultdict
@@ -390,12 +391,29 @@ class Model:
     def _get_params_from_file(self, encoding, split_length, file, file_lower, f, split_count):
         param = []
         text = None
+        image = None
         if file_lower.endswith(".txt"):
             text = Path(f).read_text(encoding=encoding)
         elif file_lower.endswith(".pdf"):
             text = self.convert_pdf_to_txt(f)
         elif file_lower.endswith(".docx"):
             text = self.convert_docx_to_txt(f)
+        elif file_lower.endswith((".jpeg", ".jpg", ".png", ".gif", ".webp")):
+            # read content as f"data:image/jpeg;base64,{base64_image}"
+            content = Path(f).read_bytes()
+            content_length = len(content)
+            base64_image = base64.b64encode(content).decode('utf-8')
+            prefix = file_lower.split('.')[-1]
+            mime_type = {
+                'jpeg': 'image/jpeg',
+                'jpg': 'image/jpeg',
+                'png': 'image/png',
+                'gif': 'image/gif',
+                'webp': 'image/webp',
+            }
+            
+            image = f"[data:{mime_type[prefix]};base64,{base64_image}]"
+            
 
         if text is not None:
             if len(text) > split_length:
@@ -409,6 +427,10 @@ class Model:
                 param.append(
                         {'_id': file, 'document_text': text, 'document_size': len(text)})
                 
+        if image is not None:
+            param.append(
+                {'_id': file, 'image': image, 'image_size': content_length})
+
         if not split_count:
             return param
         elif split_count < 0:
