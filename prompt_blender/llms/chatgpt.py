@@ -3,6 +3,7 @@ import os
 import io
 import json
 import wx
+import threading
 
 client = None
 
@@ -55,12 +56,7 @@ def exec(prompt, gpt_model, gpt_args, gpt_json, batch_mode):
     messages.append({"role": "user", "content": prompt})
 
     if client.api_key is None or client.api_key == '':
-        dlg = wx.TextEntryDialog(None, "Please enter your OpenAI API key:", "OpenAI API Key", "")
-        dlg.ShowModal()
-        result = dlg.GetValue()
-        dlg.Destroy()
-        
-        client.api_key = result
+        client.api_key = ask_api_key()
 
     if gpt_json:
         gpt_args['response_format'] = { "type": "json_object" }
@@ -106,6 +102,25 @@ def exec(prompt, gpt_model, gpt_args, gpt_json, batch_mode):
         'response': response_dump,
         'cost': cost['cost in'] + cost['cost out'],
     }
+
+def ask_api_key():
+    # This function can be called from any thread
+    result = []
+    event = threading.Event()
+
+    def show_dialog():
+        try:
+            dlg = wx.TextEntryDialog(None, "Please enter your OpenAI API key:", "OpenAI API Key", "")
+            if dlg.ShowModal() == wx.ID_OK:
+                result.append(dlg.GetValue())
+            dlg.Destroy()
+        finally:
+            event.set()  # Signal that we're done
+
+    wx.CallAfter(show_dialog)
+    event.wait()  # Wait efficiently until the dialog is closed
+
+    return result[0] if result else ""
 
 
 def exec_delayed(delayed_content: dict):
