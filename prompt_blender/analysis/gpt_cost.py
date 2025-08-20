@@ -6,15 +6,24 @@ analyse_info = {
     'llm_modules': ['chatgpt', 'chatgpt_manual'],
 }
 
-def analyse(response, timestamp):
+def analyse(response, timestamp=None):
     usage = response.get("usage", None)
     if usage is None:
         return None
 
-    tokens_in = usage['prompt_tokens']
-    tokens_out = usage['completion_tokens']
+    if 'prompt_tokens' in usage and 'completion_tokens' in usage:
+        # Chat completions API (v1)
+        tokens_in = usage['prompt_tokens']
+        tokens_out = usage['completion_tokens']
+    elif 'input_tokens' in usage and 'output_tokens' in usage:
+        # Response API (v2)
+        tokens_in = usage['input_tokens']
+        tokens_out = usage['output_tokens']
+    else:
+        print('No usage information found in response')
+        return None
 
-    # FIXME duplicated code
+
     if response['model'] == 'gpt-3.5-turbo-0125':
         cost_in = 0.50
         cost_out = 1.50
@@ -51,7 +60,7 @@ def analyse(response, timestamp):
     else:
         cost_in = 0.00
         cost_out = 0.00
-        print(response['model'])
+        print('Unknown model', response['model'])
         
     total_cost_in = tokens_in/1000000*cost_in
     total_cost_out = tokens_out/1000000*cost_out

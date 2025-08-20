@@ -592,8 +592,6 @@ class Model:
             if result_content_json:
                 try:
                     result_data = json.loads(result_content_json)
-                    usage = result_data.get("response",{})["usage"]
-                    print(usage["completion_tokens"], usage["prompt_tokens"])
                     result_content = json.dumps(result_data, indent=4, ensure_ascii=False)
 
                     # Decode json strings with \\n, \\t, \\"

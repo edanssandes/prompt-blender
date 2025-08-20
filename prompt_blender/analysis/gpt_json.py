@@ -14,10 +14,29 @@ analyse_info = {
 def analyse(response, timestamp):
     analysis = []
 
-    multiple_choices = len(response['choices']) > 1
+    if 'choices' in response:
+        # Chat completions API (v1)
+        outputs = response['choices']
+        api_type = 'chat_completions_api'
+    elif 'output' in response:
+        # Response API (v2)
+        outputs = response['output']
+        api_type = 'response_api'
+        print(json.dumps(outputs, indent=2, ensure_ascii=False))
+    else:
+        raise ValueError("Response does not contain 'choices' or 'output' key")
+    
+    multiple_choices = len(outputs) > 1
 
-    for idx_choice, choice in enumerate(response['choices']):
-        content = choice['message']['content']
+    for idx_choice, choice in enumerate(outputs):
+        print(json.dumps(choice, indent=2, ensure_ascii=False))
+        if api_type == 'chat_completions_api':
+            content = choice['message']['content']
+        elif api_type == 'response_api':
+            if 'content' not in choice:
+                continue
+            content = choice['content'][0]['text']
+
 
         try:
             data = extract_json(content)
