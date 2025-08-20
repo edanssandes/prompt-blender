@@ -498,6 +498,7 @@ class Model:
         if param:
             self.data["parameters"][param_name] = param[:max_rows]
             self.is_modified = True
+            self.selected_params[param_name] = min(self.selected_params[param_name], max_rows - 1)
 
     def remove_duplicates(self, param_name):
         param = self.get_parameter(param_name)
