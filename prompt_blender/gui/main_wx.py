@@ -422,7 +422,7 @@ class MainFrame(wx.Frame):
                 except ValueError as e:
                     wx.MessageBox(f"Error: {e}", "Error", wx.OK | wx.ICON_ERROR)
 
-            self.Bind(wx.EVT_MENU, on_menu_click)
+            menu.Bind(wx.EVT_MENU, on_menu_click)
 
             add_table_button.PopupMenu(menu)
 
@@ -646,12 +646,12 @@ class MainFrame(wx.Frame):
     def add_table_from_list(self):
         # Show a dialog to enter text in multiline mode
         #dialog = wx.TextEntryDialog(self, "Enter the list of values, one per line", "Add List", "", style=wx.TE_MULTILINE | wx.OK | wx.CANCEL)
-        dialog = InputListDialog(self, "Add List", "Enter the list of values, one per line")
-        if dialog.ShowModal() == wx.ID_OK:
-            values = dialog.GetValue()
-            extension = dialog.GetExtension()
-            self.data.add_table_from_string(values, extension, maximum_rows=self.preferences.max_rows)
-            self.populate_data()
+        with InputListDialog(self, "Add List", "Enter the list of values, one per line") as dialog:
+            if dialog.ShowModal() == wx.ID_OK:
+                values = dialog.GetValue()
+                extension = dialog.GetExtension()
+                self.data.add_table_from_string(values, extension, maximum_rows=self.preferences.max_rows)
+                self.populate_data()
 
     def apply_transform(self):
         item = self.tree.GetSelection()
