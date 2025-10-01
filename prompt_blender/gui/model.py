@@ -449,15 +449,15 @@ class Model:
             text += page.extract_text()
         return text
 
-    def add_table_from_string(self, content, extension):
+    def add_table_from_string(self, content, extension, maximum_rows=1000):
         # Create system temporary file
         with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix=f'.{extension}', encoding='utf-8') as file:
             file.write(content)
             file.close()
             file_path = file.name
-            self.add_table_from_file(file_path, variable='value')
+            self.add_table_from_file(file_path, variable='value', maximum_rows=maximum_rows)
 
-    def add_table_from_file(self, file_path, encoding='utf-8', variable=None, separator=','):
+    def add_table_from_file(self, file_path, encoding='utf-8', variable=None, separator=',', maximum_rows=1000):
         _variable, extension = os.path.basename(file_path).split('.')
         extension = extension.lower()
         if variable is None:
@@ -495,9 +495,9 @@ class Model:
                 raise ValueError(
                     "The module must contain a 'generate'function")
 
-        if len(param) > 1000:
+        if len(param) > maximum_rows:
             raise ValueError(
-                "The file contains more than 1000 rows. Please, reduce the number of rows to load.")
+                f"The file contains more than {maximum_rows} rows. Please, reduce the number of rows to load.")
         self.add_param(variable, param)
 
     def apply_transform(self, param_name, transform_file):

@@ -16,6 +16,7 @@ class Preferences():
             'preference_file_version': PREFERENCE_FILE_VERSION,
             'cache_dir': os.path.join(os.path.expanduser("~"), ".prompt_blender"),
             'max_combinations': 1024,
+            'max_rows': 1000,
             'max_cost': 1.50,
             'timeout': 30,
             'recent_files': [],
@@ -50,7 +51,9 @@ class Preferences():
                 preference_data['timeout'] = preferences.timeout
             if 'recent_files' not in preference_data:
                 preference_data['recent_files'] = preferences.recent_files
-                
+            if 'max_rows' not in preference_data:
+                preference_data['max_rows'] = preferences.max_rows
+
             print("Preferences loaded from file: ", filename)
             preferences._preferences = preference_data
 
@@ -96,6 +99,14 @@ class Preferences():
     @property
     def recent_files(self):
         return self._preferences['recent_files']
+
+    @property
+    def max_rows(self):
+        return self._preferences['max_rows']
+    
+    @max_rows.setter
+    def max_rows(self, value):
+        self._preferences['max_rows'] = value
 
     def add_recent_file(self, filename, preference_file):
         # Only add if not already present
@@ -172,6 +183,12 @@ class PreferencesDialog(wx.Dialog):
         vbox.Add(self.timeout, proportion=0, flag=wx.LEFT | wx.TOP, border=5)
 
 
+        # Maximum number of rows (numeric SpinCtrl, range=0-100000)
+        vbox.Add(wx.StaticText(self.panel, label="Maximum number of rows:"), proportion=0, flag=wx.LEFT | wx.TOP, border=5)
+        self.max_rows = wx.SpinCtrl(self.panel, min=0, max=100000)
+        vbox.Add(self.max_rows, proportion=0, flag=wx.LEFT | wx.TOP, border=5)
+
+
         # Add horizontal separator
         #line = wx.StaticLine(self.panel)
         #vbox.Add(line, flag=wx.ALL | wx.EXPAND, border=5)
@@ -214,10 +231,15 @@ class PreferencesDialog(wx.Dialog):
             self._current_preferences.cache_dir = self.cache_ctrl.GetValue()
             self.refresh_buttons()
 
+        def on_max_rows_changed(event):
+            self._current_preferences.max_rows = self.max_rows.GetValue()
+            self.refresh_buttons()
+
         self.timeout.Bind(wx.EVT_SPINCTRL, on_timeout_changed)
         self.max_cost.Bind(wx.EVT_SPINCTRLDOUBLE, on_max_cost_changed)
         self.max_combinations.Bind(wx.EVT_SPINCTRL, on_max_combinations_changed)
         self.cache_ctrl.Bind(wx.EVT_TEXT, on_cache_changed)
+        self.max_rows.Bind(wx.EVT_SPINCTRL, on_max_rows_changed)
 
         def on_close(event):
             if self._current_preferences != self._original_preferences:
@@ -244,6 +266,7 @@ class PreferencesDialog(wx.Dialog):
         self.max_combinations.SetValue(preferences.max_combinations)
         self.max_cost.SetValue(preferences.max_cost)
         self.timeout.SetValue(preferences.timeout)
+        self.max_rows.SetValue(preferences.max_rows)
 
     def refresh_buttons(self):
         print("Refresh buttons")

@@ -612,6 +612,9 @@ class MainFrame(wx.Frame):
             try:
                 paths = dialog.GetPaths()
 
+                # Set maximum rows from preferences
+                maximum_rows = self.preferences.max_rows
+
                 options = {}
 
                 # if there is any csv or txt file, ask for encoding
@@ -619,7 +622,7 @@ class MainFrame(wx.Frame):
                     options['encoding'] = self.ask_encoding()
 
                 for path in paths:
-                    self.data.add_table_from_file(path, **options)
+                    self.data.add_table_from_file(path, maximum_rows=maximum_rows, **options)
                 self.populate_data()
             except ValueError as e:
                 wx.MessageBox(f"Error: {e}", "Error", wx.OK | wx.ICON_ERROR)
@@ -647,7 +650,7 @@ class MainFrame(wx.Frame):
         if dialog.ShowModal() == wx.ID_OK:
             values = dialog.GetValue()
             extension = dialog.GetExtension()
-            self.data.add_table_from_string(values, extension)
+            self.data.add_table_from_string(values, extension, maximum_rows=self.preferences.max_rows)
             self.populate_data()
 
     def apply_transform(self):
