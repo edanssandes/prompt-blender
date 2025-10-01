@@ -348,6 +348,20 @@ class MainFrame(wx.Frame):
 
         self.tree.Bind(wx.EVT_TREE_SEL_CHANGED, on_tree_select)
 
+        # Drag and drop support
+        def on_tree_begin_drag(event):
+            item = event.GetItem()
+            if item.IsOk():
+                param_id, param_key = self.tree.GetItemData(item)
+                if param_key is not None:  # Only allow dragging variable names, not table names
+                    # Create a text data object with the variable name
+                    text_data = wx.TextDataObject(f"{{{param_key}}}")
+                    drag_source = wx.DropSource(self.tree)
+                    drag_source.SetData(text_data)
+                    result = drag_source.DoDragDrop(True)
+
+        self.tree.Bind(wx.EVT_TREE_BEGIN_DRAG, on_tree_begin_drag)
+
         # Menu de contexto para a árvore
         def on_tree_right_click(event):
             menu = wx.Menu()
@@ -739,7 +753,6 @@ class MainFrame(wx.Frame):
         if item.IsOk():
             self.data.move_param(self.selected_parameter, 1)
             self.populate_tree(self.data)
-
 
     def populate_data(self):
         self.selected_parameter = self.data.get_first_parameter()
@@ -1414,45 +1427,40 @@ class PromptPage(wx.Panel):
         # Set Hint
         self.prompt_editor.SetHint("Insert prompt text here...")
 
-        # Expand the text control to fill the panel in all directions
-        sizer.Add(self.prompt_editor, 1, wx.EXPAND)
+        # Set up drag and drop for the prompt editor
+        drop_target = PromptEditorDropTarget(self.prompt_editor)
+        self.prompt_editor.SetDropTarget(drop_target)
 
-        self.SetSizer(sizer)
-
-
-
-
-        self.refresh()
-
-        # Write 
-
-
-        # On change event for the prompt editor
+        # Bind text change event
         def on_prompt_change(event):
             if self.view_mode == 0:
                 self.data.set_prompt(self.prompt_name, self.prompt_editor.GetValue())
                 self.highlight_prompt()
 
-        self.prompt_editor.Bind(wx.EVT_TEXT, on_prompt_change)    
+        self.prompt_editor.Bind(wx.EVT_TEXT, on_prompt_change)
+
+        # Set up layout
+        sizer.Add(self.prompt_editor, 1, wx.EXPAND)
+        self.SetSizer(sizer)
+        
+        self.refresh()    
 
 
 
     def SetValue(self, text):
         self.prompt_editor.Freeze()
 
-        pos_0 = 0
-        pos_1 = 0
-
-        if self.view_mode == 0:
+        # Set background color and text based on view mode
+        if self.view_mode == 0:  # Edit mode
             if self.is_disabled():
                 self.prompt_editor.SetBackgroundColour(wx.Colour(240, 240, 240))
             else:
                 self.prompt_editor.SetBackgroundColour(wx.Colour(255, 255, 255))
             self.prompt_editor.SetValue(text)
-        elif self.view_mode == 1:
+        elif self.view_mode == 1:  # View prompt mode
             self.prompt_editor.SetBackgroundColour(wx.Colour(200, 200, 200))
             self.prompt_editor.SetValue(text)
-        else:
+        else:  # Debug cache mode
             if not text:
                 self.prompt_editor.SetBackgroundColour(wx.Colour(200, 200, 180))
                 self.prompt_editor.SetValue("")
@@ -1460,15 +1468,9 @@ class PromptPage(wx.Panel):
                 self.prompt_editor.SetBackgroundColour(wx.Colour(180, 255, 180))
                 self.prompt_editor.SetValue(text)
 
-
+        # Apply syntax highlighting
         if text and self.view_mode != 2:
             self.highlight_prompt()
-
-        #if pos_0 and pos_1:
-        #    # yellow background color for appended text
-        #    self.prompt_editor.SetStyle(pos_0, pos_1, wx.TextAttr(wx.BLACK, wx.Colour(255, 255, 192)))
-            
-            
 
         self.prompt_editor.SetEditable(self.view_mode == 0)
         self.prompt_editor.Thaw()
@@ -1526,6 +1528,56 @@ class PromptPage(wx.Panel):
     
     def set_disabled(self, value):
         self.disabled = value
+
+
+class PromptEditorDropTarget(wx.TextDropTarget):
+    def __init__(self, text_ctrl):
+        wx.TextDropTarget.__init__(self)
+        self.text_ctrl = text_ctrl
+
+    def OnDropText(self, x, y, dropped_text):
+        # Only allow dropping if the text control is editable
+        if not self.text_ctrl.IsEditable():
+            return False
+        
+        # Get the insertion position from coordinates
+        drop_pos = self._get_char_position(x, y)
+        
+        # Store original text for cleanup
+        original_text = self.text_ctrl.GetValue()
+        
+        # Don't insert text directly here! wx.TextDropTarget has default behavior that
+        # automatically inserts the dragged text after OnDropText returns. To prevent
+        # duplicate text insertion, we use CallAfter to perform our insertion after
+        # the default behavior completes, then overwrites up any unwanted drag and drop 
+        # text that was inserted by default.
+        wx.CallAfter(self._insert_drop, original_text, drop_pos, dropped_text)
+
+        return True
+    
+    def _get_char_position(self, x, y):
+        """Convert screen coordinates to character position in text"""
+        pos = self.text_ctrl.HitTest(wx.Point(x, y))
+        
+        if pos[0] == wx.TE_HT_UNKNOWN:
+            return self.text_ctrl.GetInsertionPoint()
+        
+        # Convert line/column to character position
+        line_num, col_num = pos[2], pos[1]
+        lines = self.text_ctrl.GetValue().split('\n')
+        
+        char_pos = sum(len(lines[i]) + 1 for i in range(min(line_num, len(lines))))
+        char_pos += min(col_num, len(lines[line_num]) if line_num < len(lines) else 0)
+        
+        return char_pos
+    
+    def _insert_drop(self, original_text, drop_pos, variable_text):
+        expected_text = original_text[:drop_pos] + variable_text + original_text[drop_pos:]
+
+        self.text_ctrl.SetValue(expected_text)
+        self.text_ctrl.SetInsertionPoint(drop_pos + len(variable_text))
+        self.text_ctrl.SetFocus()
+
 
 
 
