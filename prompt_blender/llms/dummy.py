@@ -1,6 +1,7 @@
 import time
 import random
 import wx
+import json
 
 module_info = {
     'id': '66981b2d-3b8b-473a-9caf-3cd9c329f5d7',
@@ -27,11 +28,18 @@ def get_args(args=None):
 
 def exec(prompt, args=None, stub_response=None):
     args = get_args(args)
-    stub_response = {
+    # Try to parse json. If fails, use as plain text around quotes
+    try:
+        parsed_stub_response = json.loads(stub_response)
+        parsed_stub_response = json.dumps(parsed_stub_response, indent=2)
+    except:
+        parsed_stub_response = f'"{stub_response}"'
+
+    full_stub_response = {
         "choices": [
             {
                 "message": {
-                    "content": stub_response
+                    "content": parsed_stub_response
                 }
             }
         ]
@@ -41,7 +49,7 @@ def exec(prompt, args=None, stub_response=None):
     time.sleep(0.15)
 
     return {
-        "response": stub_response,
+        "response": full_stub_response,
         "cost": 0.001 + random.random() * 0.002
     }
 
