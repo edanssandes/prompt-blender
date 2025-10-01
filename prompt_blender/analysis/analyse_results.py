@@ -120,6 +120,9 @@ def analyse_results(run, config, output_dir, analyse_functions):
                                 # Flatten the list of dictionaries
                                 l = list(x.values())[0]
 
+                                if not l:
+                                    l = [{}]  # Add an empty dictionary to ensure a row is created
+
                                 # Restore extra and timestamp fields if they exist
                                 if extra:
                                     l = [dict(item, **extra) for item in l]
