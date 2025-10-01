@@ -166,3 +166,8 @@ tcu/
 videos/
 screenshots/
 whitepaper/
+enap/
+videos
+screenshots
+plugins/
+.vscode/
