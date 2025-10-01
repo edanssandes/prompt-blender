@@ -1422,10 +1422,32 @@ class PromptPage(wx.Panel):
         # Sizer para o layout da página
         sizer = wx.BoxSizer(wx.VERTICAL)
 
+        # Create a panel to hold the text editor and overlay label
+        editor_panel = wx.Panel(self)
+        editor_sizer = wx.BoxSizer(wx.VERTICAL)
+        
         # TextCtrl para a edição do prompt
-        self.prompt_editor = wx.TextCtrl(self, style=wx.TE_MULTILINE | wx.TE_RICH2)
+        self.prompt_editor = wx.TextCtrl(editor_panel, style=wx.TE_MULTILINE | wx.TE_RICH2)
         # Set Hint
         self.prompt_editor.SetHint("Insert prompt text here...")
+
+        # Create character count label with transparent background
+        self.char_count_label = wx.StaticText(editor_panel, label="0 chars")
+        font = self.char_count_label.GetFont()
+        font.SetPointSize(8)  # Small font
+        self.char_count_label.SetFont(font)
+        self.char_count_label.SetForegroundColour(wx.Colour(128, 128, 128))  # Gray color
+        
+        # Position the label in bottom-right corner
+        editor_sizer.Add(self.prompt_editor, 1, wx.EXPAND)
+        editor_panel.SetSizer(editor_sizer)
+        
+        # Bind resize event to reposition label
+        def on_resize(event):
+            self.position_char_count_label()
+            event.Skip()
+        
+        editor_panel.Bind(wx.EVT_SIZE, on_resize)
 
         # Set up drag and drop for the prompt editor
         drop_target = PromptEditorDropTarget(self.prompt_editor)
@@ -1436,12 +1458,16 @@ class PromptPage(wx.Panel):
             if self.view_mode == 0:
                 self.data.set_prompt(self.prompt_name, self.prompt_editor.GetValue())
                 self.highlight_prompt()
+            self.update_char_count()
 
         self.prompt_editor.Bind(wx.EVT_TEXT, on_prompt_change)
 
         # Set up layout
-        sizer.Add(self.prompt_editor, 1, wx.EXPAND)
+        sizer.Add(editor_panel, 1, wx.EXPAND)
         self.SetSizer(sizer)
+        
+        # Initial positioning of the label
+        wx.CallAfter(self.position_char_count_label)
         
         self.refresh()    
 
@@ -1473,6 +1499,10 @@ class PromptPage(wx.Panel):
             self.highlight_prompt()
 
         self.prompt_editor.SetEditable(self.view_mode == 0)
+        
+        # Update character count
+        self.update_char_count()
+        
         self.prompt_editor.Thaw()
 
     def highlight_prompt(self):
@@ -1528,6 +1558,38 @@ class PromptPage(wx.Panel):
     
     def set_disabled(self, value):
         self.disabled = value
+
+    def position_char_count_label(self):
+        """Position the character count label in the bottom-right corner of the text editor"""
+        if not hasattr(self, 'char_count_label'):
+            return
+            
+        # Force the label to calculate its size
+        self.char_count_label.GetParent().Layout()
+        
+        editor_size = self.prompt_editor.GetSize()
+        label_size = self.char_count_label.GetBestSize()  # Use GetBestSize() instead of GetSize()
+        
+        # Position in bottom-right corner with small margin
+        x = editor_size.width - label_size.width - 5
+        y = editor_size.height - label_size.height - 5
+        
+        self.char_count_label.SetPosition((x, y))
+        
+        # Make sure the label is on top
+        self.char_count_label.Raise()
+
+    def update_char_count(self):
+        """Update the character count label"""
+        if not hasattr(self, 'char_count_label'):
+            return
+            
+        text = self.prompt_editor.GetValue()
+        char_count = len(text)
+        self.char_count_label.SetLabel(f"{char_count} chars")
+        
+        # Reposition label in case size changed
+        wx.CallAfter(self.position_char_count_label)
 
 
 class PromptEditorDropTarget(wx.TextDropTarget):
