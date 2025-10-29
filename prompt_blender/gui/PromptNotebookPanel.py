@@ -2,55 +2,6 @@ import wx
 import json
 
 
-class PromptEditorDropTarget(wx.TextDropTarget):
-    def __init__(self, text_ctrl):
-        wx.TextDropTarget.__init__(self)
-        self.text_ctrl = text_ctrl
-
-    def OnDropText(self, x, y, dropped_text):
-        # Only allow dropping if the text control is editable
-        if not self.text_ctrl.IsEditable():
-            return False
-
-        # Get the insertion position from coordinates
-        drop_pos = self._get_char_position(x, y)
-
-        # Store original text for cleanup
-        original_text = self.text_ctrl.GetValue()
-
-        # Don't insert text directly here! wx.TextDropTarget has default behavior that
-        # automatically inserts the dragged text after OnDropText returns. To prevent
-        # duplicate text insertion, we use CallAfter to perform our insertion after
-        # the default behavior completes, then overwrites up any unwanted drag and drop 
-        # text that was inserted by default.
-        wx.CallAfter(self._insert_drop, original_text, drop_pos, dropped_text)
-
-        return True
-
-    def _get_char_position(self, x, y):
-        """Convert screen coordinates to character position in text"""
-        pos = self.text_ctrl.HitTest(wx.Point(x, y))
-
-        if pos[0] == wx.TE_HT_UNKNOWN:
-            return self.text_ctrl.GetInsertionPoint()
-
-        # Convert line/column to character position
-        line_num, col_num = pos[2], pos[1]
-        lines = self.text_ctrl.GetValue().split('\n')
-
-        char_pos = sum(len(lines[i]) + 1 for i in range(min(line_num, len(lines))))
-        char_pos += min(col_num, len(lines[line_num]) if line_num < len(lines) else 0)
-
-        return char_pos
-
-    def _insert_drop(self, original_text, drop_pos, variable_text):
-        expected_text = original_text[:drop_pos] + variable_text + original_text[drop_pos:]
-
-        self.text_ctrl.SetValue(expected_text)
-        self.text_ctrl.SetInsertionPoint(drop_pos + len(variable_text))
-        self.text_ctrl.SetFocus()
-
-
 class PromptPage(wx.Panel):
     def __init__(self, parent, data, prompt_name):
         super(PromptPage, self).__init__(parent)
@@ -233,3 +184,53 @@ class PromptPage(wx.Panel):
 
         # Reposition label in case size changed
         wx.CallAfter(self.position_char_count_label)
+
+
+
+class PromptEditorDropTarget(wx.TextDropTarget):
+    def __init__(self, text_ctrl):
+        wx.TextDropTarget.__init__(self)
+        self.text_ctrl = text_ctrl
+
+    def OnDropText(self, x, y, dropped_text):
+        # Only allow dropping if the text control is editable
+        if not self.text_ctrl.IsEditable():
+            return False
+
+        # Get the insertion position from coordinates
+        drop_pos = self._get_char_position(x, y)
+
+        # Store original text for cleanup
+        original_text = self.text_ctrl.GetValue()
+
+        # Don't insert text directly here! wx.TextDropTarget has default behavior that
+        # automatically inserts the dragged text after OnDropText returns. To prevent
+        # duplicate text insertion, we use CallAfter to perform our insertion after
+        # the default behavior completes, then overwrites up any unwanted drag and drop 
+        # text that was inserted by default.
+        wx.CallAfter(self._insert_drop, original_text, drop_pos, dropped_text)
+
+        return True
+
+    def _get_char_position(self, x, y):
+        """Convert screen coordinates to character position in text"""
+        pos = self.text_ctrl.HitTest(wx.Point(x, y))
+
+        if pos[0] == wx.TE_HT_UNKNOWN:
+            return self.text_ctrl.GetInsertionPoint()
+
+        # Convert line/column to character position
+        line_num, col_num = pos[2], pos[1]
+        lines = self.text_ctrl.GetValue().split('\n')
+
+        char_pos = sum(len(lines[i]) + 1 for i in range(min(line_num, len(lines))))
+        char_pos += min(col_num, len(lines[line_num]) if line_num < len(lines) else 0)
+
+        return char_pos
+
+    def _insert_drop(self, original_text, drop_pos, variable_text):
+        expected_text = original_text[:drop_pos] + variable_text + original_text[drop_pos:]
+
+        self.text_ctrl.SetValue(expected_text)
+        self.text_ctrl.SetInsertionPoint(drop_pos + len(variable_text))
+        self.text_ctrl.SetFocus()        
