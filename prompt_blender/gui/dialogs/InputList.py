@@ -72,3 +72,15 @@ class InputListDialog(wx.Dialog):
     
     def ShowModal(self):
         return super().ShowModal()
+    
+if __name__ == "__main__":
+    app = wx.App(False)
+    dlg = InputListDialog(None, "Input List", "Please input your list of items:", default_list=["item1", "item2", "item3"])
+    if dlg.ShowModal() == wx.ID_OK:
+        print("User input:")
+        print(dlg.GetValue())
+        print("Format selected:", dlg.GetExtension())
+    else:
+        print("User cancelled the dialog.")
+    dlg.Destroy()
+    app.MainLoop()

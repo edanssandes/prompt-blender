@@ -1,6 +1,7 @@
 import os
 import wx
 import wx.grid
+from prompt_blender.gui.dialogs.PreferencesDialog import PreferencesDialog
 from prompt_blender.gui.PromptNotebookPanel import PromptPage
 from prompt_blender.gui.model import Model
 import wx.lib.agw.ultimatelistctrl as ULC
@@ -12,11 +13,11 @@ from prompt_blender.blend import blend_prompt
 
 from prompt_blender.llms import execute_llm
 from prompt_blender.llms import dummy
-from prompt_blender.gui.progress import ProgressDialog
+from prompt_blender.gui.dialogs.ProgressDialog import ProgressDialog
 #from prompt_blender.gui.execute import ExecuteDialog
-from prompt_blender.gui.run_configurations import RunConfigurationsDialog
-from prompt_blender.gui.preferences import PreferencesDialog, Preferences
-from prompt_blender.gui.input_list import InputListDialog
+from prompt_blender.gui.dialogs.RunConfigurationsDialog import RunConfigurationsDialog
+from prompt_blender.gui.preferences import Preferences
+from prompt_blender.gui.dialogs.InputList import InputListDialog
 
 from prompt_blender.analysis import gpt_cost, gpt_json
 from prompt_blender.analysis import analyse_results

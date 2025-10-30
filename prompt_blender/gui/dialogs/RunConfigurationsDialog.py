@@ -1,6 +1,6 @@
 import wx
 from prompt_blender.gui.config_model import ConfigModel
-from prompt_blender.gui.config_dialog_2 import ExecuteDialog
+from prompt_blender.gui.dialogs.ExecuteDialog import ExecuteDialog
 
 def get_art_bitmap(art_id, size=wx.ART_BUTTON):
     return wx.ArtProvider.GetBitmap(art_id, wx.ART_TOOLBAR, (16, 16))
@@ -214,7 +214,7 @@ class RunConfigurationsDialog(wx.Dialog):
     def on_edit_double_click(self, event):
         self.edit_configuration(event)
 
-def main():
+if __name__ == "__main__":
     from prompt_blender.llms import execute_llm
     llm_modules = execute_llm.load_modules(["./plugins"])
 
@@ -222,6 +222,3 @@ def main():
     dlg = RunConfigurationsDialog(None, available_modules=llm_modules)
     dlg.ShowModal()
     app.MainLoop()
-
-if __name__ == "__main__":
-    main()

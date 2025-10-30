@@ -1,6 +1,5 @@
 import wx
 import threading
-from prompt_blender.llms import execute_llm
 
 class ProgressDialog(wx.Dialog):
     def __init__(self, parent, title):
@@ -11,6 +10,7 @@ class ProgressDialog(wx.Dialog):
 
         self.running = False
         self.auto_close = False
+        self.task_thread = None
 
     def run_task(self, task, auto_close=False):
         # Iniciar a thread de processamento
@@ -93,6 +93,10 @@ class ProgressDialog(wx.Dialog):
         self.running = False
         print("Task canceled")
 
+        if self.task_thread is None:
+            self.Hide()
+            return
+
         # FIXME SegFault 
         if self.task_thread.is_alive():
             print("Waiting for thread to finish")
@@ -107,5 +111,6 @@ class ProgressDialog(wx.Dialog):
 
 if __name__ == '__main__':
     app = wx.App(False)
-    dialog = ProgressDialog(None, 'Progresso da Tarefa', 100)
+    dialog = ProgressDialog(None, 'Progresso da Tarefa')
+    dialog.Show()
     app.MainLoop()
