@@ -746,12 +746,8 @@ class MainFrame(wx.Frame):
 
         # Enable or disable menu items
         project_opened = self.data.file_path is not None
-        #self.main_menu.enable_menu_item(wx.ID_SAVE, project_opened)
-        self.main_menu.enable_menu_item(wx.ID_SAVEAS, project_opened)
-        self.main_menu.enable_menu_item(wx.ID_CLOSE, project_opened)
-
-        # Enable or disable export results menu
-        self.main_menu.enable_menu_item(3003, self.last_result_file is not None)
+        self.main_menu.update_project_menu_state(project_opened)
+        self.main_menu.update_results_menu_state(self.last_result_file is not None)
 
         # Recent files
         self.update_recent_files()

@@ -162,6 +162,18 @@ class MainMenu:
         if self.menu_bar:
             self.menu_bar.Enable(menu_id, enabled)
     
+    def update_project_menu_state(self, project_opened):
+        """Atualiza o estado dos itens de menu relacionados ao projeto"""
+        # Enable or disable menu items based on project state
+        #self.enable_menu_item(wx.ID_SAVE, project_opened)
+        self.enable_menu_item(wx.ID_SAVEAS, project_opened)
+        self.enable_menu_item(wx.ID_CLOSE, project_opened)
+    
+    def update_results_menu_state(self, has_results):
+        """Atualiza o estado dos itens de menu relacionados aos resultados"""
+        # Enable or disable export results menu
+        self.enable_menu_item(3003, has_results)
+    
     # Event handlers
     def _on_new_project(self, event):
         """Handler para New Project"""
