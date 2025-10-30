@@ -1,7 +1,7 @@
 import wx
 import os
 from prompt_blender.llms import execute_llm
-from .config_model import ConfigModel
+from prompt_blender.gui.config_model import ConfigModel
 
 class ExecuteDialog(wx.Dialog):
 
@@ -219,3 +219,12 @@ class ExecuteDialog(wx.Dialog):
             module_id=module_id,
             module_args=module_args
         )
+    
+if __name__ == '__main__':
+    app = wx.App(False)
+    modules = execute_llm.load_modules(["./plugins"])
+    config = ConfigModel()
+    print(modules)
+    dialog = ExecuteDialog(None, "Execute Dialog", modules['b85680ef-8da2-4ed5-b881-ce33fe5d3ec0'], config, [])
+    dialog.ShowModal()
+    app.MainLoop()    

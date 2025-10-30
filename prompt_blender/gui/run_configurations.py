@@ -1,6 +1,6 @@
 import wx
-from .config_model import ConfigModel
-from .config_dialog_2 import ExecuteDialog
+from prompt_blender.gui.config_model import ConfigModel
+from prompt_blender.gui.config_dialog_2 import ExecuteDialog
 
 def get_art_bitmap(art_id, size=wx.ART_BUTTON):
     return wx.ArtProvider.GetBitmap(art_id, wx.ART_TOOLBAR, (16, 16))
@@ -17,6 +17,7 @@ class RunConfigurationsDialog(wx.Dialog):
         #     self.configurations = []
         self.available_modules = available_modules
         self.on_values_changed = None
+        self.configurations = []
 
         panel = wx.Panel(self)
         vbox = wx.BoxSizer(wx.VERTICAL)
