@@ -12,14 +12,9 @@ from prompt_blender.arguments import Config
 from prompt_blender.blend import blend_prompt
 
 from prompt_blender.llms import execute_llm
-from prompt_blender.llms import dummy
-from prompt_blender.gui.dialogs.ProgressDialog import ProgressDialog
-#from prompt_blender.gui.execute import ExecuteDialog
-from prompt_blender.gui.dialogs.RunConfigurationsDialog import RunConfigurationsDialog
+from prompt_blender.gui.dialogs import ProgressDialog, RunConfigurationsDialog, InputListDialog
 from prompt_blender.gui.preferences import Preferences
-from prompt_blender.gui.dialogs.InputListDialog import InputListDialog
 
-from prompt_blender.analysis import gpt_cost, gpt_json
 from prompt_blender.analysis import analyse_results
 
 import prompt_blender.info
