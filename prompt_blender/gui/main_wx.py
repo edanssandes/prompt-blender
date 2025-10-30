@@ -17,7 +17,7 @@ from prompt_blender.gui.dialogs.ProgressDialog import ProgressDialog
 #from prompt_blender.gui.execute import ExecuteDialog
 from prompt_blender.gui.dialogs.RunConfigurationsDialog import RunConfigurationsDialog
 from prompt_blender.gui.preferences import Preferences
-from prompt_blender.gui.dialogs.InputList import InputListDialog
+from prompt_blender.gui.dialogs.InputListDialog import InputListDialog
 
 from prompt_blender.analysis import gpt_cost, gpt_json
 from prompt_blender.analysis import analyse_results
