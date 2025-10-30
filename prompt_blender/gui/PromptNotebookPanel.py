@@ -157,6 +157,10 @@ class PromptPage(wx.Panel):
         """Position the character count label in the bottom-right corner of the text editor"""
         if not hasattr(self, 'char_count_label'):
             return
+        
+        # if component has been destroyed, print stacktrace with warning
+        if not self.prompt_editor:
+            return
 
         # Force the label to calculate its size
         self.char_count_label.GetParent().Layout()
