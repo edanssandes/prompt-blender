@@ -7,7 +7,7 @@ include = ["prompt_blender/*"]
 
 [project]
 name = "prompt-blender"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
   "pyperclip>=1.9.0",
   "pandas>=2.0.3",
