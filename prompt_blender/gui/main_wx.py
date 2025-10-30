@@ -4,6 +4,7 @@ import wx.grid
 from prompt_blender.gui.dialogs.PreferencesDialog import PreferencesDialog
 from prompt_blender.gui.PromptNotebookPanel import PromptPage
 from prompt_blender.gui.model import Model
+from prompt_blender.gui.MainMenu import MainMenu
 import wx.lib.agw.ultimatelistctrl as ULC
 import wx.adv
 import pandas as pd
@@ -53,8 +54,7 @@ class MainFrame(wx.Frame):
         self.llm_modules = execute_llm.load_modules(["./plugins"])
 
         self.load_images()
-
-        self.create_menus()
+        self.setup_menu()
 
         # Dividir a janela em painéis superior e inferior
         splitter = wx.SplitterWindow(self)
@@ -107,138 +107,99 @@ class MainFrame(wx.Frame):
         self.image_list.Add(wx.ArtProvider.GetBitmap(wx.ART_ADD_BOOKMARK, client, size))
 
 
-    def create_menus(self):
-        # Menu Bar
-        menu_bar = wx.MenuBar()
-
-        # First level menus
-        file_menu = wx.Menu()
-        run_menu = wx.Menu()
-        help_menu = wx.Menu()
-
-        menu_bar.Append(file_menu, "File")
-        menu_bar.Append(run_menu, "Run")
-        menu_bar.Append(help_menu, "Help")
-
-
-        # File Menu
-
-        # New project submenu
-        new_project_menu = wx.Menu()
-        file_menu.AppendSubMenu(new_project_menu, "New Project")
-        new_project_menu.Append(100, "Empty Project")
-        new_project_menu.Append(101, "From Example")
-        new_project_menu.Append(102, "From Clipboard")
-
-
-        file_menu.Append(wx.ID_OPEN, "Open Project")
-        # Open recent
-        self.recent_menu = wx.Menu()
-        file_menu.AppendSubMenu(self.recent_menu, "Open Recent")
-        file_menu.Append(wx.ID_SAVE, "Save Project")
-        file_menu.Append(wx.ID_SAVEAS, "Save Project As ...")
-        file_menu.Append(wx.ID_CLOSE, "Close Project")
-        file_menu.AppendSeparator()
-        file_menu.Append(wx.ID_PREFERENCES, "Preferences...")
-        file_menu.AppendSeparator()
-        file_menu.Append(wx.ID_EXIT, "Sair")
-
-
-        # Run Menu
-        run_menu.Append(3001, "Run Combinations")
-        run_menu.AppendSeparator()
-        run_menu.Append(3002, "Blend Prompts")
-        run_menu.Append(3003, "Export Last Results")
+    def setup_menu(self):
+        """Configura o menu principal usando a classe MainMenu"""
+        self.main_menu = MainMenu(self)
         
-        # Split "Expire Cache" into submenu
-        expire_cache_menu = wx.Menu()
-        expire_cache_menu.Append(3004, "Current Item")
-        expire_cache_menu.Append(3005, "All Items")
-        run_menu.AppendSubMenu(expire_cache_menu, "Expire Cache")
-
-        # Help Menu / About
-        help_menu.Append(wx.ID_ABOUT, "About")
-
-        self.SetMenuBar(menu_bar)
-
-        # Eventos de menu
-
-        # Preferences
-        def on_preferences(event):
-            self.preferences_dialog.ShowModal()
-            preferences = self.preferences_dialog.get_preferences()
-            preferences.save_to_file(PREFERENCE_FILE)
-
-
-        self.Bind(wx.EVT_MENU, on_preferences, id=wx.ID_PREFERENCES)
-
-        def on_run_menu(event):
-            event_id = event.GetId()
-            if event_id == 3001:
-                self.execute_prompts()
-            elif event_id == 3002:
-                self.run_blend()
-            elif event_id == 3003:
-                self.export_results()
-            elif event_id == 3004:
-                self.expire_cache(current_item_only=True)
-            elif event_id == 3005:
-                self.expire_cache(current_item_only=False)
-
-        run_menu.Bind(wx.EVT_MENU, on_run_menu)
-
-        # About
-        def on_about(event):
-            # Consider html text hyperlink
-            info = wx.adv.AboutDialogInfo()
-            info.SetName("Prompt Blender")
-            info.SetVersion(prompt_blender.info.__version__)
-            #info.SetDevelopers([prompt_blender.info.__author__])
-            info.SetDescription(prompt_blender.info.DESCRIPTION + "\n\n" + "Developed by " + prompt_blender.info.__author__)
-            info.SetWebSite(prompt_blender.info.WEB_SITE)
-            wx.adv.AboutBox(info)
-
-        self.Bind(wx.EVT_MENU, on_about, id=wx.ID_ABOUT)
-
-        def on_new_project(event):
-            if not self.ask_save_changes():
-                return  # Cancelled
-
-            event_id = event.GetId()
-            if event_id == 100:
-                self.data = Model.create_empty()
-            elif event_id == 101:
-                self.data = Model.create_from_template()
-            elif event_id == 102:
-                self.data = Model.create_from_clipboard()
-            else:
-                return
-            
-            self.data.add_on_modified_callback(self.update_project_state)
-
-            self.reset_view_mode()
-            self.populate_data()
-
-        new_project_menu.Bind(wx.EVT_MENU, on_new_project)
-
-        file_menu.Bind(wx.EVT_MENU, lambda event: self.open_project(), id=wx.ID_OPEN)
-        file_menu.Bind(wx.EVT_MENU, lambda event: self.save_project(), id=wx.ID_SAVE)
-        file_menu.Bind(wx.EVT_MENU, lambda event: self.save_project_as(), id=wx.ID_SAVEAS)
-        file_menu.Bind(wx.EVT_MENU, lambda event: self.close_project(), id=wx.ID_CLOSE)        
-
-        def on_exit_menu(event):
-            if not self.ask_save_changes():
-                return
-            self.Close()
-
-        file_menu.Bind(wx.EVT_MENU, on_exit_menu, id=wx.ID_EXIT)
-
-        def on_exit(event):
-            if not self.ask_save_changes():
-                return
-            event.Skip()
-
-        self.Bind(wx.EVT_CLOSE, on_exit)
+        # Configurar callbacks
+        self.main_menu.set_callback('new_empty_project', self._on_new_empty_project)
+        self.main_menu.set_callback('new_from_example', self._on_new_from_example)
+        self.main_menu.set_callback('new_from_clipboard', self._on_new_from_clipboard)
+        self.main_menu.set_callback('open_project', self.open_project)
+        self.main_menu.set_callback('save_project', self.save_project)
+        self.main_menu.set_callback('save_project_as', self.save_project_as)
+        self.main_menu.set_callback('close_project', self.close_project)
+        self.main_menu.set_callback('show_preferences', self._on_show_preferences)
+        self.main_menu.set_callback('exit_application', self._on_exit_application)
+        self.main_menu.set_callback('run_combinations', self.execute_prompts)
+        self.main_menu.set_callback('blend_prompts', self.run_blend)
+        self.main_menu.set_callback('export_results', self.export_results)
+        self.main_menu.set_callback('expire_cache_current', lambda: self.expire_cache(current_item_only=True))
+        self.main_menu.set_callback('expire_cache_all', lambda: self.expire_cache(current_item_only=False))
+        self.main_menu.set_callback('show_about', None)  # Usa implementação padrão
+        self.main_menu.set_callback('open_recent_file', self._on_open_recent_file)
+        
+        # Criar menus
+        self.main_menu.create_menus()
+        
+        # Bind evento de fechamento da janela
+        self.Bind(wx.EVT_CLOSE, self._on_window_close)
+    
+    def _on_new_empty_project(self):
+        """Callback para criar projeto vazio"""
+        if not self.ask_save_changes():
+            return
+        self.data = Model.create_empty()
+        self.data.add_on_modified_callback(self.update_project_state)
+        self.reset_view_mode()
+        self.populate_data()
+    
+    def _on_new_from_example(self):
+        """Callback para criar projeto a partir de exemplo"""
+        if not self.ask_save_changes():
+            return
+        self.data = Model.create_from_template()
+        self.data.add_on_modified_callback(self.update_project_state)
+        self.reset_view_mode()
+        self.populate_data()
+    
+    def _on_new_from_clipboard(self):
+        """Callback para criar projeto a partir da área de transferência"""
+        if not self.ask_save_changes():
+            return
+        self.data = Model.create_from_clipboard()
+        self.data.add_on_modified_callback(self.update_project_state)
+        self.reset_view_mode()
+        self.populate_data()
+    
+    def _on_show_preferences(self):
+        """Callback para mostrar preferências"""
+        self.preferences_dialog.ShowModal()
+        preferences = self.preferences_dialog.get_preferences()
+        preferences.save_to_file(PREFERENCE_FILE)
+    
+    def _on_exit_application(self):
+        """Callback para sair da aplicação"""
+        if not self.ask_save_changes():
+            return
+        self.Close()
+    
+    def _on_window_close(self, event):
+        """Handler para o fechamento da janela"""
+        if not self.ask_save_changes():
+            return
+        event.Skip()
+    
+    def _on_open_recent_file(self, file_index):
+        """Callback para abrir arquivo recente"""
+        if not self.ask_save_changes():
+            return
+        
+        file_path = self.preferences.recent_files[file_index]
+        try:
+            self.data = Model.create_from_file(file_path)
+        except FileNotFoundError:
+            wx.MessageBox(f"File does not exist: {file_path}", "Error", wx.OK | wx.ICON_ERROR)
+            self.preferences.remove_recent_file(file_path, PREFERENCE_FILE)
+            self.update_recent_files()
+            return
+        except ValueError as e:
+            wx.MessageBox(f"Error loading project: {e}", "Error", wx.OK | wx.ICON_ERROR)
+            return
+        
+        self.data.add_on_modified_callback(self.update_project_state)
+        self.reset_view_mode()
+        self.populate_data()
 
 
     def create_top_panel(self, panel):
@@ -785,53 +746,19 @@ class MainFrame(wx.Frame):
 
         # Enable or disable menu items
         project_opened = self.data.file_path is not None
-        #self.GetMenuBar().Enable(wx.ID_SAVE, project_opened)
-        self.GetMenuBar().Enable(wx.ID_SAVEAS, project_opened)
-        self.GetMenuBar().Enable(wx.ID_CLOSE, project_opened)
+        #self.main_menu.enable_menu_item(wx.ID_SAVE, project_opened)
+        self.main_menu.enable_menu_item(wx.ID_SAVEAS, project_opened)
+        self.main_menu.enable_menu_item(wx.ID_CLOSE, project_opened)
 
         # Enable or disable export results menu
-        self.GetMenuBar().Enable(3003, self.last_result_file is not None)
+        self.main_menu.enable_menu_item(3003, self.last_result_file is not None)
 
         # Recent files
         self.update_recent_files()
 
     def update_recent_files(self):
-        # Delete all itens from the recent file menu
-        for item in self.recent_menu.GetMenuItems():
-            self.recent_menu.Remove(item)
-        
-        for i, file in enumerate(reversed(self.preferences.recent_files)):
-            # Relative path to the project file if it is a subdirectory of the current directory
-            if file.startswith(os.getcwd()):
-                file = os.path.relpath(file)
-                # prefix pointing to the current directory
-                file = os.path.join(".", file)
-
-            idx = 2000 + (len(self.preferences.recent_files)-1-i)
-            self.recent_menu.Append(idx, f'{i+1:2d} {file}')
-
-        if len(self.preferences.recent_files) == 0:
-            self.recent_menu.Append(2000, "No recent files")
-            self.recent_menu.Enable(2000, False)
-
-        def on_recent_file(event):
-            file = self.preferences.recent_files[event.GetId() - 2000]
-            try:
-                self.data = Model.create_from_file(file)
-            except FileNotFoundError as e:
-                wx.MessageBox(f"File does not exist: {file}", "Error", wx.OK | wx.ICON_ERROR)
-                self.preferences.remove_recent_file(file, PREFERENCE_FILE)
-                self.update_recent_files()
-                return
-            except ValueError as e:
-                wx.MessageBox(f"Error loading project: {e}", "Error", wx.OK | wx.ICON_ERROR)
-                return
-            
-            self.data.add_on_modified_callback(self.update_project_state)
-            self.reset_view_mode()
-            self.populate_data()
-
-        self.Bind(wx.EVT_MENU, on_recent_file, id=2000, id2=2000 + len(self.preferences.recent_files))
+        """Atualiza o menu de arquivos recentes usando a classe MainMenu"""
+        self.main_menu.update_recent_files(self.preferences.recent_files)
 
 
     def create_bottom_panel(self, panel):
