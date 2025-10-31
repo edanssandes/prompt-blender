@@ -19,7 +19,7 @@ parser.add_argument('--preferences', type=str, help='Path to the preferences fil
 parser.add_argument('--merge', type=str, nargs='*', help='Merge parameters from CSV file(s) in format: parameter=file.csv')
 parser.add_argument('--output', type=str, help='Path to the output file')
 parser.add_argument('--overwrite', action='store_true', help='Overwrite existing output file without prompt')
-
+parser.add_argument('--dump-results', type=str, help='Path to the result file to dump')
 
 def merge_csv_parameters(config_data, merge_params):
     """
@@ -48,6 +48,15 @@ def merge_csv_parameters(config_data, merge_params):
 
 def main():
     args = parser.parse_args()
+
+    if args.dump_results:
+        analysis_results = result_file.read_result_file(args.dump_results)
+        for module_name, results in analysis_results.items():
+            print(f"Results for module: {module_name}")
+            df = pd.DataFrame(results)
+            print(df)
+        exit()
+
 
     gui = (args.config is None)
 

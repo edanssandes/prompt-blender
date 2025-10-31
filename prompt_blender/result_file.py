@@ -88,3 +88,14 @@ def save_analysis_results(filename, output_dir, analysis_results, data, run_args
 
     # Create the final zip file
     _save_result_file(filename, output_dir, merged_analysis_results, data, run_args)
+
+
+def read_result_file(filename):
+    analysis_results = {}
+    with zipfile.ZipFile(filename, 'r') as zipf:
+        with zipf.open('result.xlsx') as xlsx_file:
+            xls = pd.ExcelFile(xlsx_file)
+            for sheet_name in xls.sheet_names:
+                df = pd.read_excel(xls, sheet_name=sheet_name)
+                analysis_results[sheet_name] = df.to_dict(orient='records')
+    return analysis_results
