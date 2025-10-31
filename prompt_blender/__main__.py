@@ -10,6 +10,7 @@ from prompt_blender.gui.model import Model
 from prompt_blender.gui import main_wx
 
 from prompt_blender.analysis import analyse_results
+from prompt_blender import result_file
 
 
 parser = argparse.ArgumentParser()
@@ -102,7 +103,7 @@ def main():
         analysis_results[name] = ret
 
     print(f'Saving results to {output_zip}...')
-    analyse_results.save_analysis_results(output_zip, cache_dir, analysis_results, config, run_args)
+    result_file.save_analysis_results(output_zip, cache_dir, analysis_results, config, run_args)
     print('Done')
 
 

@@ -1,12 +1,10 @@
 import os
 import wx
-import wx.grid
 from prompt_blender.gui.dialogs.PreferencesDialog import PreferencesDialog
 from prompt_blender.gui.PromptNotebookPanel import PromptPage
 from prompt_blender.gui.model import Model
 from prompt_blender.gui.MainMenu import MainMenu
 import wx.lib.agw.ultimatelistctrl as ULC
-import wx.adv
 import pandas as pd
 
 from prompt_blender.blend import blend_prompt
@@ -17,12 +15,12 @@ from prompt_blender.gui.preferences import Preferences
 
 from prompt_blender.analysis import analyse_results
 
-import prompt_blender.info
-
 import hashlib
 import json
 
 import shutil
+
+from prompt_blender import result_file
 
 
 PROJECT_FILE_EXTENSION = "pbp"
@@ -1036,7 +1034,7 @@ class MainFrame(wx.Frame):
         last_result_file = os.path.join(output_dir, zipfile_name)
 
         # Create the final zip file with all analysis results
-        analyse_results.save_analysis_results(last_result_file, output_dir, analysis_results, self.data, run_args)
+        result_file.save_analysis_results(last_result_file, output_dir, analysis_results, self.data, run_args)
 
         self.last_result_file = last_result_file
         wx.CallAfter(self.update_project_state)
