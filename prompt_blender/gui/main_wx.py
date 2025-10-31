@@ -9,7 +9,6 @@ import wx.lib.agw.ultimatelistctrl as ULC
 import wx.adv
 import pandas as pd
 
-from prompt_blender.arguments import Config
 from prompt_blender.blend import blend_prompt
 
 from prompt_blender.llms import execute_llm
@@ -29,7 +28,6 @@ import shutil
 
 
 PROJECT_FILE_EXTENSION = "pbp"
-PREFERENCE_FILE = "prompt_blender.config"
 SUPPORTED_ENCODINGS = ["utf-8", "latin1", "windows-1252", "utf-16", "utf-32", "ascii"] 
 
 class MainFrame(wx.Frame):
@@ -44,11 +42,7 @@ class MainFrame(wx.Frame):
         self.last_result_file = None
         self.selected_parameter = None
 
-        # Load preferences from config file
-        if os.path.exists(PREFERENCE_FILE):
-            self.preferences = Preferences.load_from_file(PREFERENCE_FILE)
-        else:
-            self.preferences = Preferences()
+        self.preferences = Preferences.load_from_file()
 
         self.analyse_functions = analyse_results.load_modules(["./plugins"])
         self.llm_modules = execute_llm.load_modules(["./plugins"])
@@ -166,7 +160,7 @@ class MainFrame(wx.Frame):
         """Callback para mostrar preferências"""
         self.preferences_dialog.ShowModal()
         preferences = self.preferences_dialog.get_preferences()
-        preferences.save_to_file(PREFERENCE_FILE)
+        preferences.save_to_file()
     
     def _on_exit_application(self):
         """Callback para sair da aplicação"""
@@ -190,7 +184,7 @@ class MainFrame(wx.Frame):
             self.data = Model.create_from_file(file_path)
         except FileNotFoundError:
             wx.MessageBox(f"File does not exist: {file_path}", "Error", wx.OK | wx.ICON_ERROR)
-            self.preferences.remove_recent_file(file_path, PREFERENCE_FILE)
+            self.preferences.remove_recent_file(file_path)
             self.update_recent_files()
             return
         except ValueError as e:
@@ -437,7 +431,7 @@ class MainFrame(wx.Frame):
                     path += f".{PROJECT_FILE_EXTENSION}"
 
                 self.data.save_to_file(path)
-                self.preferences.add_recent_file(path, PREFERENCE_FILE)
+                self.preferences.add_recent_file(path)
                 self.update_recent_files()
 
             else:
@@ -476,7 +470,7 @@ class MainFrame(wx.Frame):
                 self.data.add_on_modified_callback(self.update_project_state)
                 self.reset_view_mode()
                 self.populate_data()
-                self.preferences.add_recent_file(path, PREFERENCE_FILE)
+                self.preferences.add_recent_file(path)
                 self.update_recent_files()
             except ValueError as e:
                 wx.MessageBox(f"Error loading project: {e}", "Error", wx.OK | wx.ICON_ERROR)
@@ -965,9 +959,8 @@ class MainFrame(wx.Frame):
         self.progress_dialog.run_task(self.task_blend, auto_close=True)
 
     def task_blend(self):
-        config = Config.load_from_dict(self.data.to_dict())
         output_dir = self.preferences.cache_dir
-        blend_prompt(config, output_dir, self.progress_dialog.update_progress)
+        blend_prompt(self.data, output_dir, self.progress_dialog.update_progress)
 
     def expire_cache(self, current_item_only):
         # Ask for confirmation
@@ -980,9 +973,8 @@ class MainFrame(wx.Frame):
             return
         
         # Expire the cache
-        config = Config.load_from_dict(self.data.to_dict())
         output_dir = self.preferences.cache_dir
-        run_args = self.get_run_args()
+        run_args = self.data.get_run_args(self.llm_modules)
 
         for _, run in run_args.items():
             if not current_item_only:
@@ -991,7 +983,7 @@ class MainFrame(wx.Frame):
                 prompt_name = self.prompt_pages[self.notebook.GetSelection()].title
                 current_combinations = [self.data.get_current_combination(prompt_name)]
 
-            execute_llm.expire_cache(run, config, output_dir, cache_timeout=0, combinations=current_combinations)#, progress_callback=self.progress_dialog.update_progress)
+            execute_llm.expire_cache(run, self.data, output_dir, cache_timeout=0, combinations=current_combinations)#, progress_callback=self.progress_dialog.update_progress)
 
         wx.MessageBox("Cache expired successfully.", "Success", wx.OK | wx.ICON_INFORMATION)
 
@@ -1005,10 +997,9 @@ class MainFrame(wx.Frame):
         self.last_result_file = None
         wx.CallAfter(self.update_project_state)
 
-        config = Config.load_from_dict(self.data.to_dict())
         #output_dir = "output_teste"
         output_dir = self.preferences.cache_dir
-        blend_prompt(config, output_dir)
+        blend_prompt(self.data, output_dir)
         
         # Execute the LLM
         #module_args = self.execute_dialog.get_module_args()
@@ -1017,18 +1008,18 @@ class MainFrame(wx.Frame):
         # The results are stored in a dictionary with the run configuration name as key
         analysis_results = {}
         cache_prefixes = {}
-        run_args = self.get_run_args()
+        run_args = self.data.get_run_args(self.llm_modules)
 
         for name, run in run_args.items():
 
             try:
                 max_cost = self.preferences.max_cost
-                timestamp = execute_llm.execute_llm(run, config, output_dir, progress_callback=self.progress_dialog.update_progress, cache_timeout=cache_timeout, max_cost=max_cost)
+                timestamp = execute_llm.execute_llm(run, self.data, output_dir, progress_callback=self.progress_dialog.update_progress, cache_timeout=cache_timeout, max_cost=max_cost)
                 if not self.progress_dialog.running:
                     self.interrupted = True
                     break
 
-                ret = analyse_results.analyse_results(run, config, output_dir, self.analyse_functions)
+                ret = analyse_results.analyse_results(run, self.data, output_dir, self.analyse_functions)
                 analysis_results[name] = ret
 
             except Exception as e:
@@ -1042,105 +1033,20 @@ class MainFrame(wx.Frame):
 
         hash_caches = hashlib.md5(json.dumps(cache_prefixes, sort_keys=True).encode()).hexdigest()
 
-        # Merge all analysis results into a single dictionary. Parameter "_run" will be added to each result
-        merged_analysis_results = {}
-        for run_name, analysis in analysis_results.items():
-            for module_name, results in analysis.items():
-                if module_name not in merged_analysis_results:
-                    merged_analysis_results[module_name] = []
-                for result in results:
-                    result['_run'] = run_name
-                    merged_analysis_results[module_name].append(result)
-
-        # Include all prompts
-        merged_analysis_results['prompts'] = []
-        merged_analysis_results['runs'] = []
-
-        for k,v in config.enabled_prompts.items():
-            merged_analysis_results['prompts'].append({
-                'Prompt Name': k, 
-                'Template': v
-            })
-        for name, run in run_args.items():
-            merged_analysis_results['runs'].append({
-                'Run Name': name, 
-                'Module Name': run['module_name'],
-                'Module ID': run['module_info'].get('id', 'Unknown'),
-                'Run Hash': run['run_hash'],
-                'Module Description': run['module_info'].get('description', 'Unknown'),
-                'Module Version': run['module_info'].get('version', 'Unknown'),
-                'Arguments': json.dumps(run['args'], indent=4)
-            })
+        # Merge all analysis results into a single dictionary.
+        merged_analysis_results = merge_analysis_results(self.data, analysis_results, run_args)
 
         # The zipfile name is the result name with the timestamp
         zipfile_name = f'{hash_caches}_{timestamp}.zip'
 
         # Create the final zip file
         last_result_file = os.path.join(output_dir, zipfile_name)
-        with zipfile.ZipFile(last_result_file, 'w') as zipf:
-            byteio = io.BytesIO()
-            with pd.ExcelWriter(byteio, engine="xlsxwriter") as writer:
-                for run, analysis in merged_analysis_results.items():
-                    for module_name, results in merged_analysis_results.items():
-                        if results:
-                            df = pd.DataFrame(results)
-                            df.to_excel(writer, sheet_name=module_name, index=False)
-
-            byteio.seek(0)
-            zipf.writestr(f'result.xlsx', byteio.read())
-
-
-            # Add the config file to the zip
-            zipf.writestr('config.pbp', json.dumps(config.json))
-            #zipf.writestr('execution.json', json.dumps({'module': llm_module.__name__, 'args': module_args_public}))
-
-            # This set keeps track of the result files that are already in the zip
-            result_files = set()
-
-            # Add the prompt files and result files to the zip
-            for argument_combination in config.get_parameter_combinations():
-                prompt_file = os.path.join(output_dir, argument_combination.prompt_file)
-                zipf.write(prompt_file, os.path.relpath(prompt_file, output_dir))
-                for run in run_args.values():
-                    result_file = os.path.join(output_dir, argument_combination.get_result_file(run['run_hash']))
-
-                    if result_file not in result_files:
-
-                        full_result_file = os.path.join(output_dir, result_file)
-                        if os.path.exists(full_result_file):
-                            zipf.write(full_result_file, os.path.relpath(full_result_file, output_dir))
-                            result_files.add(result_file)
-                        else:
-                            if not self.interrupted:
-                                print(f"Warning: Result file {result_file} not found")
-                        result_files.add(result_file)
+        save_result_file(last_result_file, output_dir, merged_analysis_results, self.data, run_args)
 
         self.last_result_file = last_result_file
         wx.CallAfter(self.update_project_state)
 
         wx.CallAfter(self.execution_done)
-
-    def get_run_args(self):
-        run_args = {}
-
-        for name, run_configuration in self.data.run_configurations.items():
-            llm_module = self.llm_modules[run_configuration['module_id']]
-
-            module_info = llm_module.module_info
-            module_name = module_info['name']
-            args = run_configuration['module_args']
-            hash_args = hashlib.md5(json.dumps(args, sort_keys=True).encode()).hexdigest()
-            run_hash = f'{module_info["cache_prefix"]}_{hash_args}'
-
-            run_args[name] = {
-                'llm_module': llm_module,
-                'module_info': module_info,
-                'module_name': module_name,
-                'args': args,
-                'run_hash': run_hash
-            }
-            
-        return run_args
 
        
     def execution_done(self):
@@ -1307,8 +1213,9 @@ class MainFrame(wx.Frame):
 
 
     def refresh_prompts(self):
+        run_args = self.data.get_run_args(self.llm_modules)
         run_hashes = {run_name: run_args['run_hash'] 
-                      for run_name, run_args in self.get_run_args().items()}
+                      for run_name, run_args in run_args.items()}
 
         for idx, prompt_page in enumerate(self.prompt_pages):
             prompt_page.view_mode = self.view_mode.GetSelection()
@@ -1323,6 +1230,82 @@ class MainFrame(wx.Frame):
             else:     
                 # default color
                 self.notebook.SetPageTextColour(idx, wx.Colour(0, 0, 0))
+
+
+
+def merge_analysis_results(config, analysis_results, run_args):
+    # Merge all analysis results into a single dictionary. Parameter "_run" will be added to each result
+    merged_analysis_results = {}
+    for run_name, analysis in analysis_results.items():
+        for module_name, results in analysis.items():
+            if module_name not in merged_analysis_results:
+                merged_analysis_results[module_name] = []
+            for result in results:
+                result['_run'] = run_name
+                merged_analysis_results[module_name].append(result)
+
+    # Include all prompts
+    merged_analysis_results['prompts'] = []
+    merged_analysis_results['runs'] = []
+
+    for k,v in config.enabled_prompts.items():
+        merged_analysis_results['prompts'].append({
+            'Prompt Name': k, 
+            'Template': v
+        })
+    for name, run in run_args.items():
+        merged_analysis_results['runs'].append({
+            'Run Name': name, 
+            'Module Name': run['module_name'],
+            'Module ID': run['module_info'].get('id', 'Unknown'),
+            'Run Hash': run['run_hash'],
+            'Module Description': run['module_info'].get('description', 'Unknown'),
+            'Module Version': run['module_info'].get('version', 'Unknown'),
+            'Arguments': json.dumps(run['args'], indent=4)
+        })
+
+    return merged_analysis_results
+
+
+def save_result_file(filename, output_dir, merged_analysis_results, data, run_args):
+    with zipfile.ZipFile(filename, 'w') as zipf:
+        byteio = io.BytesIO()
+        with pd.ExcelWriter(byteio, engine="xlsxwriter") as writer:
+            #for run, analysis in merged_analysis_results.items():  # FIXME
+                for module_name, results in merged_analysis_results.items():
+                    if results:
+                        df = pd.DataFrame(results)
+                        df.to_excel(writer, sheet_name=module_name, index=False)
+
+        byteio.seek(0)
+        zipf.writestr(f'result.xlsx', byteio.read())
+
+
+        # Add the config file to the zip
+        with io.StringIO() as config_io:
+            data.save_to_fp(config_io)
+            zipf.writestr('config.pbp', config_io.getvalue())
+
+        #zipf.writestr('execution.json', json.dumps({'module': llm_module.__name__, 'args': module_args_public}))
+
+        # This set keeps track of the result files that are already in the zip
+        result_files = set()
+
+        # Add the prompt files and result files to the zip
+        for argument_combination in data.get_parameter_combinations():
+            prompt_file = os.path.join(output_dir, argument_combination.prompt_file)
+            zipf.write(prompt_file, os.path.relpath(prompt_file, output_dir))
+            for run in run_args.values():
+                result_file = os.path.join(output_dir, argument_combination.get_result_file(run['run_hash']))
+
+                if result_file not in result_files:
+                    full_result_file = os.path.join(output_dir, result_file)
+                    if os.path.exists(full_result_file):
+                        zipf.write(full_result_file, os.path.relpath(full_result_file, output_dir))
+                        result_files.add(result_file)
+                    else:
+                        print(f"Warning: Result file {result_file} not found")
+                    result_files.add(result_file)
 
 
 

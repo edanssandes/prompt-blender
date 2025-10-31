@@ -9,10 +9,13 @@ from collections import defaultdict
 from pathlib import Path
 from datetime import datetime
 from prompt_blender import info
-from prompt_blender.arguments import Config, ParameterCombination
 from importlib.util import spec_from_file_location, module_from_spec
 import docx2txt
 from PyPDF2 import PdfReader
+
+import itertools
+import hashlib
+
 
 FILE_FORMAT_VERSION = "1.0"
 
@@ -147,6 +150,15 @@ class Model:
             file_path = self.file_path
         if file_path is None:
             return False
+        
+        with open(file_path, 'w', encoding='utf-8') as file:
+            self.save_to_fp(file)
+
+        self.file_path = file_path
+        self.is_modified = False
+        return True
+
+    def save_to_fp(self, fp):
         metadata = self.data.get("metadata", {})
         # save local time with timezone in isoformat
         metadata.update(
@@ -157,15 +169,12 @@ class Model:
                 'file_format_version': FILE_FORMAT_VERSION
             })
         self.data["metadata"] = metadata
-        with open(file_path, 'w', encoding='utf-8') as file:
-            json.dump(self.data, file, ensure_ascii=False, indent=4)
-        self.file_path = file_path
-        self.is_modified = False
-        return True
+        json.dump(self.data, fp, ensure_ascii=False, indent=4)
+
 
     def to_dict(self):
         return self.data
-
+    
     def get_prompt(self, prompt_name):
         return self.data["prompts"][prompt_name]
 
@@ -189,6 +198,10 @@ class Model:
                 disabled_prompts.remove(prompt_name)
                 self.is_modified = True
         self.data["disabled_prompts"] = disabled_prompts
+
+    @property
+    def enabled_prompts(self):
+        return {k:v for k,v in self.data["prompts"].items() if not self.is_prompt_disabled(k)}
 
     def get_interpolated_prompt(self, prompt_name):
         _, text = self._interpolate(
@@ -368,7 +381,7 @@ class Model:
             )
             self.is_modified = True
 
-    def add_table_from_directory(self, directory_path, encoding='utf-8', split_length=8000000, split_count=SPLIT_ALL_CHUNKS):
+    def add_table_from_directory(self, directory_path, encoding='utf-8', split_length=8000000, split_count=SPLIT_ALL_CHUNKS, variable='dir'):
         param = []
         errors = []
         for file in os.listdir(directory_path):
@@ -386,7 +399,7 @@ class Model:
         if errors:
             raise ValueError(
                 f"Errors reading files: {errors}. Please, check the files and try again.")
-        self.add_param('dir', param)
+        self.add_param(variable, param)
 
     def _get_params_from_file(self, encoding, split_length, file, file_lower, f, split_count):
         param = []
@@ -585,11 +598,61 @@ class Model:
 
         return tag_positions, new_text
 
+    def get_run_args(self, llm_modules: dict = None):
+        run_args = {}
+
+        for name, run_configuration in self.run_configurations.items():
+            llm_module = llm_modules[run_configuration['module_id']] if llm_modules else None
+
+            module_info = llm_module.module_info
+            module_name = module_info['name']
+            args = run_configuration['module_args']
+            hash_args = hashlib.md5(json.dumps(args, sort_keys=True).encode()).hexdigest()
+            run_hash = f'{module_info["cache_prefix"]}_{hash_args}'
+
+            run_args[name] = {
+                'llm_module': llm_module,
+                'module_info': module_info,
+                'module_name': module_name,
+                'args': args,
+                'run_hash': run_hash
+            }
+            
+        return run_args
+   
+
+    def get_parameter_combinations(self, callback=None):
+        prompts = [{'_id': prompt_name, 'prompt': prompt} for prompt_name, prompt in self.enabled_prompts.items()]
+
+        # Create parameters combinations, such that each combination has a unique tuple (i0, i1, i2, ...)
+        parameters = [prompts] + list(self.parameters.values())
+
+        num_combinations = self.get_num_combinations()
+        if callback:
+            keep_running = callback(0, num_combinations)
+        else:
+            keep_running = True
+
+        for i, combination in enumerate(itertools.product(*parameters)):
+            yield ParameterCombination(combination)
+            if callback:
+                keep_running = callback(i+1, num_combinations)
+                if keep_running is False:
+                    break
 
     def get_current_combination(self, prompt_name):
-        config = Config.load_from_dict(self.data)
-        combination = config.get_parameter_combination(prompt_name, self.get_selected_values())
-        return combination
+        parameters = [{'_id': prompt_name, 'prompt': self.data["prompts"][prompt_name]}] + [self.get_selected_values()]
+        return ParameterCombination(parameters)
+
+
+    def get_num_combinations(self):
+        # Calculate multiplication of all parameter lengths
+        num_combinations = len(self.enabled_prompts)
+        for parameter in self.parameters.values():
+            num_combinations *= len(parameter)
+        print('Number of combinations:', num_combinations)
+        return num_combinations
+    
 
     def get_result_files(self, prompt_name, output_dir, run_hashes):
         combination = self.get_current_combination(prompt_name)
@@ -644,3 +707,71 @@ class Model:
 
         #print(f"Full results for prompt '{prompt_name}':\n{full_results}")
         return full_results
+    
+class ParameterCombination:
+    def __init__(self, combination: list):
+        prompt_arguments = {}  # Arguments used in the prompt expansion
+        prompt_arguments_masked = {}  # Arguments used in the prompt expansion, but masked when an _id is present
+
+        for argument in combination:
+            values = {k:v for k,v in argument.items() if not k.startswith('_')}
+            id = argument.get('_id', None)
+            if not id:
+                prompt_arguments_masked.update(values)
+            else:
+                prompt_arguments_masked.update({k: (id if isinstance(v, str) else v)
+                                                for k,v in values.items()})
+
+
+
+            prompt_arguments.update(values)
+
+        try:
+            self._prompt_content = prompt_arguments['prompt'].format(**prompt_arguments)
+            self._missing_argument = None
+        except KeyError as e:
+            print(f'Error: Prompt file contains argument "{e}", but it was not found in the input arguments.')
+            print(f'Please, check the prompt file and the input arguments.')
+            self._prompt_content = None
+            self._missing_argument = [str(e)]
+            return  # TODO Test this case when we delete a parameter after validating the prompt content
+        except Exception as e:
+            print(f'Error: {e}')
+            print('Please, check the prompt file and the input arguments.')
+            raise
+        
+
+
+        # Calculate non-cryptographic hash of the prompt content
+        # sha1 cryptographic hash of the prompt content
+        self._prompt_hash = hashlib.sha1(self._prompt_content.encode()).hexdigest()
+        filepath = os.path.join('cache', self._prompt_hash[:2], self._prompt_hash)
+
+        self._prompt_arguments = prompt_arguments
+        self._prompt_arguments_masked = prompt_arguments_masked
+        self._filepath = filepath
+        self._prompt_file = os.path.join(filepath, 'prompt.txt')
+
+    @property
+    def prompt_file(self):
+        return self._prompt_file
+    
+    @property
+    def prompt_content(self):
+        return self._prompt_content
+    
+    @property
+    def missing_argument(self):
+        return self._missing_argument
+    
+    def get_result_file(self, run_hash: str):
+        return os.path.join(self._filepath, f'result_{run_hash}.json')
+
+    @property
+    def filepath(self):
+        return self._filepath
+    
+    @property
+    def prompt_hash(self):
+        return self._prompt_hash
+        

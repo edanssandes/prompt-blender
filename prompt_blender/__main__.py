@@ -1,107 +1,109 @@
 import argparse
 import os
-import sys
+import pandas as pd
 
-from prompt_blender.analysis.analyse_results import analyse_results
-from prompt_blender.arguments import Config
 from prompt_blender.blend import blend_prompt
-from prompt_blender.llms.execute_llm import execute_llm
-from prompt_blender.analysis import gpt_cost, gpt_json
+from prompt_blender.llms import execute_llm
+from prompt_blender.gui.preferences import Preferences
+from prompt_blender.gui.model import Model
 
-from prompt_blender.llms import chatgpt, chatgpt_manual
+from prompt_blender.gui import main_wx
+
+from prompt_blender.analysis import analyse_results
+
 
 parser = argparse.ArgumentParser()
-
-parser.add_argument('--job-dir', type=str, help='Path to the job directory', default=None)
-parser.add_argument('--job-file', type=str, help='Path to the json file', default=None)
-
-parser.add_argument('--prompt-file', type=str, help='Path to the prompt file')
-parser.add_argument('--parameter-files', nargs='+', help='List of file or directory parameters')
-parser.add_argument('--output-dir', type=str, help='Path to the output directory')
-
-# argument for execution: --exec
-parser.add_argument('--exec', action='store_true', help='Execute LLM with the generated prompts')
-parser.add_argument('--recreate', action='store_true', help='Recreate the output files')
-
-# argumentos for chatgpt: --model gpt-3.5-turbo-0125 --api-key-file secret.key --args temperature=0.5 top_p=0.9
-parser.add_argument('--gpt-model', type=str, help='Model name for chatgpt', default='gpt-3.5-turbo-0125')
-parser.add_argument('--gpt-args', nargs='+', help='List of arguments for chatgpt in the form key=value')
-parser.add_argument('--gpt-json', action='store_true', help='Return the response in json format', default=True)
-parser.add_argument('--gpt-manual-ui', action='store_true', help='Use manual UI for chatgpt. Same as --gpt-model=gpt-manual-ui', default=False)
-
-# You can use many times the --analyse argument to analyse the output files
-parser.add_argument('--analyse', type=str, nargs='+', help='Python file used to analyse the output files. The file must contains a function called analyse(refs_values, content)')
-
-parser.add_argument('--gui', action='store_true', help='Show GUI for the analysis', default=False)
+parser.add_argument('--config', type=str, help='Path to the configuration file (.pbp)')
+parser.add_argument('--preferences', type=str, help='Path to the preferences file (.config)')
+parser.add_argument('--merge', type=str, nargs='*', help='Merge parameters from CSV file(s) in format: parameter=file.csv')
+parser.add_argument('--output', type=str, help='Path to the output file')
 
 
-args = parser.parse_args()
-
-if args.gui or len(sys.argv) == 1:
-    from prompt_blender.gui import main_wx
-    main_wx.run()
-    exit()
-
-# If job is not defined, then prompt-file, args, output-dir and analysis-dir must be defined
-if not args.job_dir and not args.job_file:
-    # If any of the arguments is not defined, then exit
-    if not args.prompt_file or not args.args or not args.output_dir:
-        #show help
-        parser.print_help()
-        print('\n')
-        exit('Error: If job is not defined, then --prompt-file, --args, --output-dir and --analysis-dir must be defined')
-
-job_dir = args.job_dir
-
-if job_dir:
-    output_dir = os.path.join(job_dir, 'output')
-
-
-if args.parameter_files:
-    parameter_files = args.parameter_files
-
-if args.prompt_file:
-    prompt_file = args.prompt_file
-
-if args.output_dir:
-    output_dir = args.output_dir
-
-if args.gpt_manual_ui:
-    args.gpt_model = 'gpt-manual-ui'
-
-if args.analyse is None:
-    args.analyse = []
-   
-   
-print('Expanding job configuration...')
-if args.job_file:
-    config = Config.load_from_json(args.job_file)
-elif args.job_dir:
-    config = Config.load_from_dir(args.job_dir)
-else:
-    config = Config.load_from_parameters(output_dir)
+def merge_csv_parameters(config_data, merge_params):
+    """
+    Merge multiple CSV parameters into config data.
+    Args:
+        config_data: Dictionary containing the configuration
+        merge_params: List of strings in format "parameter_index=file.csv"
+    Returns:
+        Modified config_data
+    """
+    for merge_param in merge_params:
+        if '=' not in merge_param:
+            raise ValueError("--merge parameter must be in format: parameter=file.csv")
+        param_name, csv_file = merge_param.split('=', 1)
+        if config_data.get_parameter(param_name) is None:
+            raise ValueError(f"Parameter '{param_name}' not found in configuration. You can only merge existing parameters.")
+        config_data.remove_param(param_name)
+        if os.path.isdir(csv_file):
+            config_data.add_table_from_directory(directory_path=csv_file, variable=param_name)
+            print(f"Merged parameter '{param_name}' from directory: '{csv_file}'")
+        elif os.path.isfile(csv_file):
+            config_data.add_table_from_file(file_path=csv_file, variable=param_name)
+            print(f"Merged parameter '{param_name}' from file:'{csv_file}'")
+        else:
+            raise FileNotFoundError(f"CSV file or directory not found: {csv_file}")
 
 
-print('Generating prompts...', end='')
-output_files = blend_prompt(config, output_dir)
-print(f' Done: {len(output_files)} files generated.')
+def main():
+    args = parser.parse_args()
 
+    gui = (args.config is None)
 
+    # GUI mode
+    if gui:
+        main_wx.run()
+        exit()
 
-if args.exec:
-    if args.gpt_manual_ui:
-        llm_module = chatgpt_manual
+    # Non-GUI execution
+    if not os.path.exists(args.config):
+        exit(f'Error: Configuration file not found: {args.config}')
+
+    print('Expanding job configuration...')
+    config = Model.create_from_file(args.config)
+
+    # Load preferences from config file
+    preferences = Preferences.load_from_file(args.preferences)
+
+    # Apply merge(s) if specified
+    if args.merge:
+        merge_csv_parameters(config, args.merge)
+
+    # Set output zip file
+    if args.output:
+        output_zip = args.output
     else:
-        llm_module = chatgpt
+        config_dir = os.path.dirname(os.path.abspath(args.config))
+        config_name = os.path.splitext(os.path.basename(args.config))[0]
+        output_zip = os.path.join(config_dir, f"{config_name}_results.zip")
 
-    module_args = llm_module.get_args(args)
-    execute_llm(llm_module, module_args, config, output_dir, args.recreate)
+    output_dir = preferences.cache_dir
 
-args.analyse += [gpt_cost.__file__]
-if args.gpt_json:
-    args.analyse += [gpt_json.__file__]
 
-if args.analyse:
-    analyse_results(args, output_files, output_dir)
-    
-print('Done')
+    analyse_functions = analyse_results.load_modules(["./plugins"])
+    llm_modules = execute_llm.load_modules(["./plugins"])
+
+    print('Generating prompts...', end='')
+    output_files = blend_prompt(config, output_dir)
+    print(f' Done: {len(output_files)} files generated.')
+
+    analysis_results = {}
+    max_cost = preferences.max_cost
+    cache_timeout = None
+
+    run_args = config.get_run_args(llm_modules)
+
+    for name, run in run_args.items():
+        timestamp = execute_llm.execute_llm(run, config, output_dir, progress_callback=None, cache_timeout=cache_timeout, max_cost=max_cost)
+        ret = analyse_results.analyse_results(run, config, output_dir, analyse_functions)
+        analysis_results[name] = ret
+
+    merged_analysis_results = main_wx.merge_analysis_results(config, analysis_results, run_args)
+
+    print(f'Saving results to {output_zip}...')
+    main_wx.save_result_file(output_zip, output_dir, merged_analysis_results, config, run_args)
+    print('Done')
+
+
+if __name__ == "__main__":
+    main()
