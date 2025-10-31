@@ -650,7 +650,7 @@ class Model:
         num_combinations = len(self.enabled_prompts)
         for parameter in self.parameters.values():
             num_combinations *= len(parameter)
-        print('Number of combinations:', num_combinations)
+        #print('Number of combinations:', num_combinations)
         return num_combinations
     
 

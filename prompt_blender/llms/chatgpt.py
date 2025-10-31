@@ -182,13 +182,11 @@ def ask_api_key():
 
 
 def exec_delayed(delayed_content: dict):
-    print("TESTE")
     jsonl_file_content = []
     batch_ids = set()
     #return
 
     for key, content in delayed_content.items():
-        print(key, content)
         if "body" in content:
             jsonl_file_content.append({
                 "custom_id": key,

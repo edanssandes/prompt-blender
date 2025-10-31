@@ -61,14 +61,14 @@ def load_modules(paths):
     return modules
 
 
-def expire_cache(run_args, config, output_dir, cache_timeout=None, progress_callback=None, combinations=None):
+def expire_cache(run_args, config, cache_dir, cache_timeout=None, progress_callback=None, combinations=None):
     """
     Expire the cache for the given run arguments and configuration.
     
     Args:
         run_args (dict): The run arguments containing the LLM module and other parameters.
         config (ConfigModel): The configuration model containing parameter combinations.
-        output_dir (str): The directory where output files are stored.
+        cache_dir (str): The directory where cache output files are stored.
         cache_timeout (int, optional): The cache timeout in seconds. Defaults to None, meaning no expiration.
 
     Returns:
@@ -89,7 +89,7 @@ def expire_cache(run_args, config, output_dir, cache_timeout=None, progress_call
         combinations = config.get_parameter_combinations(callback)
 
     for argument_combination in combinations:
-        result_file = os.path.join(output_dir, argument_combination.get_result_file(run_args['run_hash']))
+        result_file = os.path.join(cache_dir, argument_combination.get_result_file(run_args['run_hash']))
         delayed_file = result_file + '.delayed'
         print("EXPIRING", result_file, delayed_file)
         expire_file(cache_timeout, result_file)
@@ -107,16 +107,9 @@ def expire_file(cache_timeout, file):
             os.remove(file)
 
 
-def execute_llm(run_args, config, output_dir, cache_timeout=None, progress_callback=None, max_cost=0):
+def execute_llm(run_args, config, cache_dir, cache_timeout=None, progress_callback=None, max_cost=0):
     """
     Executes the LLM (Language Model) with the given arguments and output files.
-
-    Args:
-        args (Namespace): The command-line arguments.
-        output_files (list): A list of tuples containing the prompt file path and corresponding reference values.
-
-    Returns:
-        None
     """
     
     module_args = run_args.get('args', {})
@@ -168,14 +161,14 @@ def execute_llm(run_args, config, output_dir, cache_timeout=None, progress_callb
 
     try:
         for argument_combination in config.get_parameter_combinations(callback):
-            output = _execute_inner(run_args, output_dir, cache_timeout, argument_combination)
+            output = _execute_inner(run_args, cache_dir, cache_timeout, argument_combination)
             time.sleep(0.005)  # This allows the animation to be shown in the GUI for executions that are too fast (e.g. full cache hits)
 
             if output:
                 max_timestamp = max(max_timestamp, output['timestamp'])
                 total_cost += output['cost'] if output.get('cost', None) is not None else 0
 
-        pending = _execute_delayed(run_args, config, output_dir, llm_module)
+        pending = _execute_delayed(run_args, config, cache_dir, llm_module)
         print(pending)
 
         if pending:
@@ -189,14 +182,14 @@ def execute_llm(run_args, config, output_dir, cache_timeout=None, progress_callb
     return max_timestamp
 
 
-def _execute_inner(run, output_dir, cache_timeout, argument_combination):
+def _execute_inner(run, cache_dir, cache_timeout, argument_combination):
     llm_module = run['llm_module']
     run_hash = run['run_hash']
 
     #module_args = dict(run['args']) # Make a copy of the module arguments to avoid modifying the original
 
-    prompt_file = os.path.join(output_dir, argument_combination.prompt_file)
-    result_file = os.path.join(output_dir, argument_combination.get_result_file(run_hash))
+    prompt_file = os.path.join(cache_dir, argument_combination.prompt_file)
+    result_file = os.path.join(cache_dir, argument_combination.get_result_file(run_hash))
     delayed_file = result_file + '.delayed'
 
     if os.path.exists(delayed_file):
@@ -274,7 +267,7 @@ def _execute_inner(run, output_dir, cache_timeout, argument_combination):
     return output
 
 
-def _execute_delayed(run_args, config, output_dir, llm_module):
+def _execute_delayed(run_args, config, cache_dir, llm_module):
     if 'exec_delayed' not in dir(llm_module):
         # If the module does not support delayed execution, return immediately
         return None
@@ -282,7 +275,7 @@ def _execute_delayed(run_args, config, output_dir, llm_module):
     old_delayed_data = {}
     delayed_params = {}
     for argument_combination in config.get_parameter_combinations():
-        result_file = os.path.join(output_dir, argument_combination.get_result_file(run_args['run_hash']))
+        result_file = os.path.join(cache_dir, argument_combination.get_result_file(run_args['run_hash']))
         delayed_file = result_file + '.delayed'
         if os.path.exists(delayed_file):
             with open(delayed_file, 'r', encoding='utf-8') as file:
@@ -294,7 +287,7 @@ def _execute_delayed(run_args, config, output_dir, llm_module):
 
     pending = 0
     for argument_combination in config.get_parameter_combinations():
-        result_file = os.path.join(output_dir, argument_combination.get_result_file(run_args['run_hash']))
+        result_file = os.path.join(cache_dir, argument_combination.get_result_file(run_args['run_hash']))
         delayed_file = result_file + '.delayed'
         if os.path.exists(delayed_file):
 

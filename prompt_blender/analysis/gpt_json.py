@@ -22,14 +22,14 @@ def analyse(response, timestamp):
         # Response API (v2)
         outputs = response['output']
         api_type = 'response_api'
-        print(json.dumps(outputs, indent=2, ensure_ascii=False))
+        #print(json.dumps(outputs, indent=2, ensure_ascii=False))
     else:
         raise ValueError("Response does not contain 'choices' or 'output' key")
     
     multiple_choices = len(outputs) > 1
 
     for idx_choice, choice in enumerate(outputs):
-        print(json.dumps(choice, indent=2, ensure_ascii=False))
+        #print(json.dumps(choice, indent=2, ensure_ascii=False))
         if api_type == 'chat_completions_api':
             content = choice['message']['content']
         elif api_type == 'response_api':

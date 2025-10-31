@@ -3,7 +3,7 @@ import os
 
 
 
-def blend_prompt(config, output_dir, progress_callback=None):
+def blend_prompt(config, cache_dir, progress_callback=None):
     """
     Merge prompt file with all argument combinations and create new prompt files in the output directory.
 
@@ -39,11 +39,11 @@ def blend_prompt(config, output_dir, progress_callback=None):
         else:
             return True
 
-    print(f'Creating prompt files in {output_dir}...')
+    print(f'Creating prompt files in {cache_dir}...')
     for argument_combination in config.get_parameter_combinations(callback):
 
         # Join the file path and create the directory if it does not exist.
-        filepath = os.path.join(output_dir, argument_combination.filepath)
+        filepath = os.path.join(cache_dir, argument_combination.filepath)
         os.makedirs(filepath, exist_ok=True)
 
         # Create the prompt file with the expanded arguments.
