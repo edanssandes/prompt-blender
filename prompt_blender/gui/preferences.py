@@ -7,6 +7,7 @@ import json
 from prompt_blender import info
 
 PREFERENCE_FILE_VERSION = "1.0"
+PREFERENCE_FILE = "prompt_blender.config"
 
 class Preferences():
     def __init__(self):
@@ -29,9 +30,23 @@ class Preferences():
         return new_obj
     
     @staticmethod
-    def load_from_file(filename):
+    def load_from_file(filename=None):
         print("Loading preferences from file: ", filename)
         preferences = Preferences()
+
+        if filename is None:
+            filename = PREFERENCE_FILE
+            raise_if_not_found = False
+        else:
+            raise_if_not_found = True
+
+        if not os.path.exists(filename):
+            if raise_if_not_found:
+                raise FileNotFoundError(f"Preferences file not found: {filename}")
+            else:
+                print("Preferences file not found, using default preferences.")
+                return preferences
+            
         with open(filename, 'r', encoding='utf-8') as f:
             preference_data = json.load(f)
 
@@ -59,7 +74,10 @@ class Preferences():
 
         return preferences
     
-    def save_to_file(self, filename):
+    def save_to_file(self, filename=None):
+        if filename is None:
+            filename = PREFERENCE_FILE
+
         print("Saving preferences to file: ", filename)
         with open(filename, 'w', encoding='utf-8') as f:
             json.dump(self._preferences, f, indent=4)
@@ -108,7 +126,7 @@ class Preferences():
     def max_rows(self, value):
         self._preferences['max_rows'] = value
 
-    def add_recent_file(self, filename, preference_file):
+    def add_recent_file(self, filename, preference_file=None):
         # Only add if not already present
         if filename in self._preferences['recent_files']:
             return
@@ -119,7 +137,7 @@ class Preferences():
 
         self.save_to_file(preference_file)
 
-    def remove_recent_file(self, filename, preference_file):
+    def remove_recent_file(self, filename, preference_file=None):
         self._preferences['recent_files'].remove(filename)
         self.save_to_file(preference_file)
 
