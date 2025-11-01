@@ -107,7 +107,7 @@ def expire_file(cache_timeout, file):
             os.remove(file)
 
 
-def execute_llm(run_args, config, cache_dir, cache_timeout=None, progress_callback=None, max_cost=0):
+def execute_llm(run_args, config, cache_dir, cache_timeout=None, progress_callback=None, max_cost=0, gui=False):
     """
     Executes the LLM (Language Model) with the given arguments and output files.
     """
@@ -122,7 +122,6 @@ def execute_llm(run_args, config, cache_dir, cache_timeout=None, progress_callba
     time.sleep(0.75)  # This allows the animation to be shown in the GUI for executions that are too fast (e.g. full cache hits)
 
     llm_module = run_args['llm_module']
-    llm_module.exec_init()
 
     total_cost = 0
 
@@ -158,10 +157,16 @@ def execute_llm(run_args, config, cache_dir, cache_timeout=None, progress_callba
     # latest timestamp. This will be used to determine the file name of the output file.
     # If we are reusing all the cached files, the latest timestamp will be the same across all the runs.
     max_timestamp = ''
+    module_initialized = False
 
     try:
         for argument_combination in config.get_parameter_combinations(callback):
-            output = _execute_inner(run_args, cache_dir, cache_timeout, argument_combination)
+            output = get_cached_response(run_args, cache_dir, cache_timeout, argument_combination)
+            if output is None:
+                if not module_initialized:
+                    llm_module.exec_init(gui=gui)
+                    module_initialized = True
+                output = _execute_inner(run_args, cache_dir, argument_combination)
             time.sleep(0.005)  # This allows the animation to be shown in the GUI for executions that are too fast (e.g. full cache hits)
 
             if output:
@@ -177,13 +182,16 @@ def execute_llm(run_args, config, cache_dir, cache_timeout=None, progress_callba
         if progress_callback:
             progress_callback(0, 0, description="Finishing up...")
     finally:
-        llm_module.exec_close()
+        if module_initialized:
+            llm_module.exec_close()
 
     return max_timestamp
 
 
-def _execute_inner(run, cache_dir, cache_timeout, argument_combination):
-    llm_module = run['llm_module']
+def get_cached_response(run, cache_dir, cache_timeout, argument_combination):
+    """
+    Retrieves cached responses for the given run arguments and configuration.
+    """
     run_hash = run['run_hash']
 
     #module_args = dict(run['args']) # Make a copy of the module arguments to avoid modifying the original
@@ -200,25 +208,6 @@ def _execute_inner(run, cache_dir, cache_timeout, argument_combination):
 
     if cache_timeout is None:
         cache_timeout = float('inf')
-
-    # Remove sensitive arguments from the output
-    module_args_public = {k: v for k, v in run['args'].items() if not k.startswith('_')}  # FIXME duplicated code
-
-    #timestamp = pd.Timestamp.now().strftime("%Y%m%d%H%M%S")
-    # UTC timestamp
-    timestamp = time.strftime("%Y%m%d%H%M%S", time.gmtime())
-
-    output = {
-            'params': argument_combination._prompt_arguments_masked,
-            'prompt': prompt_content,
-            'module_name': llm_module.__name__,
-            'module_version': llm_module.module_info.get('version', ''),
-            'module_args': module_args_public,
-            'timestamp': timestamp,
-            'app_name': info.APP_NAME,
-            'app_version': info.__version__,
-        }
-
 
     if os.path.exists(result_file):
         cache_age = time.time() - os.path.getmtime(result_file)
@@ -241,12 +230,49 @@ def _execute_inner(run, cache_dir, cache_timeout, argument_combination):
                 print(f'{result_file}: cache file is corrupted.')
                 raise
 
+    return None
+
+
+
+def _execute_inner(run, cache_dir, argument_combination):
+    llm_module = run['llm_module']
+    run_hash = run['run_hash']
+
+    #module_args = dict(run['args']) # Make a copy of the module arguments to avoid modifying the original
+
+    prompt_file = os.path.join(cache_dir, argument_combination.prompt_file)
+    result_file = os.path.join(cache_dir, argument_combination.get_result_file(run_hash))
+    delayed_file = result_file + '.delayed'
+
+    if os.path.exists(delayed_file):
+        return None
+
+    with open(prompt_file, 'r', encoding='utf-8') as file:
+        prompt_content = file.read()
+
+    # Remove sensitive arguments from the output
+    module_args_public = {k: v for k, v in run['args'].items() if not k.startswith('_')}  # FIXME duplicated code
+
+    #timestamp = pd.Timestamp.now().strftime("%Y%m%d%H%M%S")
+    # UTC timestamp
+    timestamp = time.strftime("%Y%m%d%H%M%S", time.gmtime())
 
     print(f'{prompt_file}: processing')
     t0 = time.time()
     
     args = copy.deepcopy(run['args'])  # creating an deepcopy to avoid the llm_module modifying the original arguments
     response = llm_module.exec(prompt_content, **args)
+
+    output = {
+            'params': argument_combination._prompt_arguments_masked,
+            'prompt': prompt_content,
+            'module_name': llm_module.__name__,
+            'module_version': llm_module.module_info.get('version', ''),
+            'module_args': module_args_public,
+            'timestamp': timestamp,
+            'app_name': info.APP_NAME,
+            'app_version': info.__version__,
+        }
 
     if 'delayed' in response:
         with open(delayed_file, 'w', encoding='utf-8') as file:

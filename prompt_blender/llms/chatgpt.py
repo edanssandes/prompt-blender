@@ -23,9 +23,18 @@ module_info = {
 
 DEFAULT_MODEL = 'gpt-4.1-mini'
 
-def exec_init():
+def exec_init(gui=False):
     global client
-    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY", ""))
+    api_key = os.getenv("OPENAI_API_KEY", "")
+
+    if api_key is None or api_key == '':
+        if gui:
+            api_key = ask_api_key()
+        else:
+            exit('Error: OPENAI_API_KEY environment variable not set.')
+
+    client = OpenAI(api_key=api_key)
+
 
 def get_args(args=None):
     if args is not None:
@@ -66,9 +75,6 @@ def exec(prompt, gpt_model, gpt_args, gpt_json, batch_mode, web_search):
             prompt = prompt.replace(f'{img}', f'img{idx + 1:02d}')
 
     api_type = 'chat_completion_api'
-
-    if client.api_key is None or client.api_key == '':
-        client.api_key = ask_api_key()
 
     if gpt_json:
         gpt_args['response_format'] = { "type": "json_object" }

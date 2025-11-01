@@ -1013,7 +1013,7 @@ class MainFrame(wx.Frame):
 
             try:
                 max_cost = self.preferences.max_cost
-                timestamp = execute_llm.execute_llm(run, self.data, output_dir, progress_callback=self.progress_dialog.update_progress, cache_timeout=cache_timeout, max_cost=max_cost)
+                timestamp = execute_llm.execute_llm(run, self.data, output_dir, progress_callback=self.progress_dialog.update_progress, cache_timeout=cache_timeout, max_cost=max_cost, gui=True)
                 if not self.progress_dialog.running:
                     self.interrupted = True
                     break
