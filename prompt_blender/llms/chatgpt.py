@@ -298,16 +298,7 @@ def exec_delayed(delayed_content: dict):
 
 
     if jsonl_file_content:
-        if _gui:
-            show_batch_warning(jsonl_file_content)
-        else:
-            # Show confirmation input
-            import sys
-            print(f"Batch processing is experimental and the cost of the batch cannot be tracked.")
-            print(f"Do you want to continue? (y/n): ", end='')
-            choice = input().strip().lower()
-            if choice != 'y':
-                raise Exception("Batch processing aborted by user.")
+        show_batch_warning(jsonl_file_content)
 
         
         # Create a JSONL file-like object
@@ -342,17 +333,29 @@ def exec_close():
     client = None
 
 def show_batch_warning(jsonl_file_content):
-    # Ask Continue or Abort
-    msg = "Batch processing is experimental and the cost of the batch cannot be tracked.\n\nDo you want to continue?"
-    dlg = wx.MessageDialog(None, msg, f"Batch Processing Warning - {len(jsonl_file_content)} item(s)", wx.YES_NO | wx.ICON_WARNING)
-    try:
-        result = dlg.ShowModal()
-    except Exception as e:
-        print(f"Error showing batch warning dialog: {e}")
-        result = wx.ID_NO
-    finally:
-        dlg.Destroy()
-    if result == wx.ID_NO:
+    confirmed = False
+    if not _gui:
+        # Show confirmation input
+        print(f"Batch processing is experimental and the cost of the batch cannot be tracked.")
+        print(f"Do you want to continue? (y/n): ", end='')
+        choice = input().strip().lower()
+        confirmed = (choice == 'y')
+    else:
+        # Ask Continue or Abort
+        msg = "Batch processing is experimental and the cost of the batch cannot be tracked.\n\nDo you want to continue?"
+        dlg = wx.MessageDialog(None, msg, f"Batch Processing Warning - {len(jsonl_file_content)} item(s)", wx.YES_NO | wx.ICON_WARNING)
+        try:
+            result = dlg.ShowModal()
+        except Exception as e:
+            print(f"Error showing batch warning dialog: {e}")
+            result = wx.ID_NO
+        finally:
+            dlg.Destroy()
+            
+        confirmed = (result == wx.ID_YES)
+        
+    if not confirmed:
+        print("Batch processing aborted by user.")
         raise Exception("Batch processing aborted by user.")
     
    
