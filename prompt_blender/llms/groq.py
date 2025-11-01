@@ -12,7 +12,7 @@ module_info = {
     'cache_prefix': 'groq',
 }
 
-def exec_init():
+def exec_init(gui=False):
     global client
     client = Groq(api_key="")
 

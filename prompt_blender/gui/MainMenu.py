@@ -104,7 +104,7 @@ class MainMenu:
         run_menu.Append(3001, "Run Combinations")
         run_menu.AppendSeparator()
         run_menu.Append(3002, "Blend Prompts")
-        run_menu.Append(3003, "Export Last Results")
+        run_menu.Append(3003, "Export Results")
         
         # Submenu Expire Cache
         expire_cache_menu = wx.Menu()

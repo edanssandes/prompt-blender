@@ -15,7 +15,7 @@ module_info = {
 DEFAULT_STUB_MESSAGE = "Stub response from the dummy model."
 
 
-def exec_init():
+def exec_init(gui=False):
     pass
 
 def get_args(args=None):

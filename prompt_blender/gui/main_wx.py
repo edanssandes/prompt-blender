@@ -15,8 +15,7 @@ from prompt_blender.gui.preferences import Preferences
 
 from prompt_blender.analysis import analyse_results
 
-import hashlib
-import json
+from datetime import datetime
 
 import shutil
 
@@ -38,7 +37,6 @@ class MainFrame(wx.Frame):
             self.data = Model.create_from_template()
 
         self.data.add_on_modified_callback(self.update_project_state)
-        self.last_result_file = None
         self.selected_parameter = None
 
         self.preferences = Preferences.load_from_file()
@@ -740,7 +738,6 @@ class MainFrame(wx.Frame):
         # Enable or disable menu items
         project_opened = self.data.file_path is not None
         self.main_menu.update_project_menu_state(project_opened)
-        self.main_menu.update_results_menu_state(self.last_result_file is not None)
 
         # Recent files
         self.update_recent_files()
@@ -993,7 +990,6 @@ class MainFrame(wx.Frame):
         #print('Task All', llm_module)
         cache_timeout = None
 
-        self.last_result_file = None
         wx.CallAfter(self.update_project_state)
 
         #output_dir = "output_teste"
@@ -1004,22 +1000,20 @@ class MainFrame(wx.Frame):
         #module_args = self.execute_dialog.get_module_args()
 
         # Each run configuration is a module with its own arguments
-        # The results are stored in a dictionary with the run configuration name as key
-        analysis_results = {}
-        cache_prefixes = {}
         run_args = self.data.get_run_args(self.llm_modules)
+
+        max_timestamp = ''
 
         for name, run in run_args.items():
 
             try:
                 max_cost = self.preferences.max_cost
                 timestamp = execute_llm.execute_llm(run, self.data, output_dir, progress_callback=self.progress_dialog.update_progress, cache_timeout=cache_timeout, max_cost=max_cost, gui=True)
+                max_timestamp = max(max_timestamp, timestamp)
+
                 if not self.progress_dialog.running:
                     self.interrupted = True
                     break
-
-                ret = analyse_results.analyse_results(run, self.data, output_dir, self.analyse_functions)
-                analysis_results[name] = ret
 
             except Exception as e:
                 self.execute_error = str(e)
@@ -1030,19 +1024,37 @@ class MainFrame(wx.Frame):
                 traceback.print_exc()
                 return
 
-        hash_caches = hashlib.md5(json.dumps(cache_prefixes, sort_keys=True).encode()).hexdigest()
+        if not self.interrupted:
+            self.export_current_results(max_timestamp)
 
-        # The zipfile name is the result name with the timestamp
-        zipfile_name = f'{hash_caches}_{timestamp}.zip'
-        last_result_file = os.path.join(output_dir, zipfile_name)
-
-        # Create the final zip file with all analysis results
-        result_file.save_analysis_results(last_result_file, output_dir, analysis_results, self.data, run_args)
-
-        self.last_result_file = last_result_file
         wx.CallAfter(self.update_project_state)
 
         wx.CallAfter(self.execution_done)
+
+    def export_current_results(self, timestamp=None):
+        run_args = self.data.get_run_args(self.llm_modules)
+        output_dir = self.preferences.cache_dir
+
+        analysis_results = {}
+        for name, run in run_args.items():
+            ret = analyse_results.analyse_results(run, self.data, output_dir, self.analyse_functions)
+            analysis_results[name] = ret
+
+        if all([x == {} for x in analysis_results.values()]):
+            return None
+
+        if timestamp is None:
+            timestamp = datetime.now().strftime('%s')
+
+        # The zipfile name is the result name with the timestamp
+        zipfile_name = f'tmp_{timestamp}.zip'
+        result_filename = os.path.join(output_dir, zipfile_name)
+
+        # Create the final zip file with all analysis results
+        result_file.save_analysis_results(result_filename, output_dir, analysis_results, self.data, run_args)
+
+        return result_filename
+
 
        
     def execution_done(self):
@@ -1058,10 +1070,12 @@ class MainFrame(wx.Frame):
 
 
     def export_results(self):
-        if self.last_result_file is None:
+        result_filename = self.export_current_results()
+
+        if result_filename is None:
             wx.MessageBox("Nenhum resultado para exportar", "Erro", wx.OK | wx.ICON_ERROR)
             return
-        
+
         if self.data.file_path is None:
             prefix = "untitled"
         else:
@@ -1076,7 +1090,7 @@ class MainFrame(wx.Frame):
             path = dialog.GetPath()
             
             # copy the zip file to the selected path
-            shutil.copy(self.last_result_file, path)                
+            shutil.copy(result_filename, path)                
 
     def populate_notebook(self, data):
         self.notebook.DeleteAllPages()
