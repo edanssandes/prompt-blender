@@ -8,6 +8,7 @@ import threading
 
 from prompt_blender.analysis.gpt_cost import analyse as get_cost
 client = None
+_gui = False
 
 MODULE_UUID = 'b85680ef-8da2-4ed5-b881-ce33fe5d3ec0'
 
@@ -25,11 +26,15 @@ DEFAULT_MODEL = 'gpt-4.1-mini'
 
 def exec_init(gui=False):
     global client
+    global _gui
+    _gui = gui
     api_key = os.getenv("OPENAI_API_KEY", "")
 
     if api_key is None or api_key == '':
         if gui:
             api_key = ask_api_key()
+            # Set the environment variable for future use
+            #os.environ["OPENAI_API_KEY"] = api_key
         else:
             exit('Error: OPENAI_API_KEY environment variable not set.')
 
@@ -178,6 +183,8 @@ def ask_api_key():
             if dlg.ShowModal() == wx.ID_OK:
                 result.append(dlg.GetValue())
             dlg.Destroy()
+        except Exception as e:
+            print(f"Error showing API key dialog: {e}")
         finally:
             event.set()  # Signal that we're done
 
@@ -210,35 +217,35 @@ def exec_delayed(delayed_content: dict):
         print(batch)
         if batch.status != "completed":
             print(f"Batch {batch_id} is not completed yet.")
-        elif batch.output_file_id is None and batch.error_file_id is not None:
-            print(f"Batch {batch_id} has errors.")
-            error_response = client.files.content(batch.error_file_id)
-            error_data = error_response.text
-            print(error_data)
-            for line in error_data.splitlines():
-                response_dump = json.loads(line)
-                response = response_dump['response']['body']
-                custom_id = response_dump['custom_id']
-                new_delayed_content[custom_id] = {
-                    'response': response,
-                    'error': response['error']['type'],
-                    'batch_id': batch_id,
-                }
-            # Delete the batch input file because we don't need it anymore
-            client.files.delete(batch.input_file_id)
-            client.files.delete(batch.error_file_id)
         else:
-            # Retrieve the file content
-            print(batch.output_file_id)
-            file_response = client.files.content(batch.output_file_id)
-            jsonl_data = file_response.text
-            print(len(jsonl_data))
+            print(batch.output_file_id, batch.error_file_id)
+
+            # Retrieve the output file content
+            if batch.output_file_id is not None:
+                file_response = client.files.content(batch.output_file_id)
+                jsonl_data = file_response.text
+            else:
+                jsonl_data = ""
+
+            # Retrieve the error file content
+            if batch.error_file_id is not None:
+                print(f"Batch {batch_id} has errors.")                
+                error_response = client.files.content(batch.error_file_id)
+                error_data = error_response.text
+            else:
+                error_data = ""
+
+            print(len(jsonl_data), len(jsonl_data.splitlines()), len(error_data), len(error_data.splitlines()))
             first_result = True
             for line in jsonl_data.splitlines():
                 response_dump = json.loads(line)
                 response = response_dump['response']['body']
                 custom_id = response_dump['custom_id']
                 cost = get_cost(response)
+                print("FOUND line in jsonl_data:", custom_id)
+                if custom_id.startswith("9a5"):
+                    print("DEBUG", cost, response_dump)
+
 
                 new_delayed_content[custom_id] = {
                     'response': response,
@@ -252,15 +259,56 @@ def exec_delayed(delayed_content: dict):
                     new_delayed_content[custom_id]['elapsed_time'] = elapsed_time
                     first_result = False
 
+            for line in error_data.splitlines():
+                response_dump = json.loads(line)
+                response = response_dump['response']['body']
+                custom_id = response_dump['custom_id']
+                print("FOUND error on custom_id:", custom_id)
+                if response.get('error'):
+                    response_error = response['error']['type']  
+                else:
+                    # Some errors might not have 'error'=null from openai
+                    # see https://community.openai.com/t/batch-api-shows-2000-completed-0-failed-but-some-requests-return-status-code-0/1364654
+                    response_error = None
+
+                new_delayed_content[custom_id] = {
+                    'response': response,
+                    'error': response_error,
+                    'batch_id': batch_id,
+                }
+
             # Delete the batch input file because we don't need it anymore
             try:
-                client.files.delete(batch.input_file_id)
+                if batch.input_file_id is not None:
+                    client.files.delete(batch.input_file_id)
             except Exception as e:
                 print(f"Error deleting batch input file {batch.input_file_id}: {e}")
-            
+
+            try:
+                if batch.output_file_id is not None:
+                    client.files.delete(batch.output_file_id)
+            except Exception as e:
+                print(f"Error deleting batch output file {batch.output_file_id}: {e}")
+
+            try:
+                if batch.error_file_id is not None:
+                    client.files.delete(batch.error_file_id)
+            except Exception as e:
+                print(f"Error deleting batch error file {batch.error_file_id}: {e}")
+
 
     if jsonl_file_content:
-        show_batch_warning(jsonl_file_content)
+        if _gui:
+            show_batch_warning(jsonl_file_content)
+        else:
+            # Show confirmation input
+            import sys
+            print(f"Batch processing is experimental and the cost of the batch cannot be tracked.")
+            print(f"Do you want to continue? (y/n): ", end='')
+            choice = input().strip().lower()
+            if choice != 'y':
+                raise Exception("Batch processing aborted by user.")
+
         
         # Create a JSONL file-like object
         jsonl_str = '\n'.join([json.dumps(item) for item in jsonl_file_content])
@@ -297,8 +345,13 @@ def show_batch_warning(jsonl_file_content):
     # Ask Continue or Abort
     msg = "Batch processing is experimental and the cost of the batch cannot be tracked.\n\nDo you want to continue?"
     dlg = wx.MessageDialog(None, msg, f"Batch Processing Warning - {len(jsonl_file_content)} item(s)", wx.YES_NO | wx.ICON_WARNING)
-    result = dlg.ShowModal()
-    dlg.Destroy()
+    try:
+        result = dlg.ShowModal()
+    except Exception as e:
+        print(f"Error showing batch warning dialog: {e}")
+        result = wx.ID_NO
+    finally:
+        dlg.Destroy()
     if result == wx.ID_NO:
         raise Exception("Batch processing aborted by user.")
     
