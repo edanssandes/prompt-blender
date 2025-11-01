@@ -28,12 +28,15 @@ SUPPORTED_ENCODINGS = ["utf-8", "latin1", "windows-1252", "utf-16", "utf-32", "a
 
 class MainFrame(wx.Frame):
     TITLE = 'Prompt Blender'
-    def __init__(self, parent):
+    def __init__(self, parent, config_file=None):
         super(MainFrame, self).__init__(parent, title=MainFrame.TITLE, size=(800, 600))
 
-        # Exemplo de dados para a árvore
-        #self.data = Model.create_empty()
-        self.data = Model.create_from_template()
+        if config_file:
+            self.data = Model.create_from_file(config_file)
+        else:
+            # Exemplo de dados para a árvore
+            self.data = Model.create_from_template()
+
         self.data.add_on_modified_callback(self.update_project_state)
         self.last_result_file = None
         self.selected_parameter = None
@@ -1226,9 +1229,9 @@ class MainFrame(wx.Frame):
 
 
 
-def run():
+def run(config_file=None):
     app = wx.App(False)
-    frame = MainFrame(None)
+    frame = MainFrame(None, config_file=config_file)
     app.MainLoop()
 
 

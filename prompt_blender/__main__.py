@@ -14,12 +14,14 @@ from prompt_blender import result_file
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--config', type=str, help='Path to the configuration file (.pbp)')
+parser.add_argument('config', nargs='?', default=None, help='Path to the configuration file (.pbp)')
 parser.add_argument('--preferences', type=str, help='Path to the preferences file (.config)')
 parser.add_argument('--merge', type=str, nargs='*', help='Merge parameters from CSV file(s) in format: parameter=file.csv')
 parser.add_argument('--output', type=str, help='Path to the output file')
 parser.add_argument('--overwrite', action='store_true', help='Overwrite existing output file without prompt')
 parser.add_argument('--dump-results', type=str, help='Path to the result file to dump')
+parser.add_argument('--run', action='store_true', help='Run now (non-GUI mode)')
+parser.add_argument('--cache-dir', type=str, help='Path to the cache directory. Overrides preferences setting.')
 
 def merge_csv_parameters(config_data, merge_params):
     """
@@ -57,17 +59,15 @@ def main():
             print(df)
         exit()
 
-
-    gui = (args.config is None)
+    if not os.path.exists(args.config):
+        exit(f'Error: Configuration file not found: {args.config}')
 
     # GUI mode
-    if gui:
-        main_wx.run()
+    if not args.run:
+        main_wx.run(args.config)
         exit()
 
     # Non-GUI execution
-    if not os.path.exists(args.config):
-        exit(f'Error: Configuration file not found: {args.config}')
 
     # Set output zip file
     if args.output:
@@ -91,7 +91,10 @@ def main():
     if args.merge:
         merge_csv_parameters(config, args.merge)
 
-    cache_dir = preferences.cache_dir
+    if args.cache_dir:
+        cache_dir = args.cache_dir
+    else:
+        cache_dir = preferences.cache_dir
 
     analyse_functions = analyse_results.load_modules(["./plugins"])
     llm_modules = execute_llm.load_modules(["./plugins"])
