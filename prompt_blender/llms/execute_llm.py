@@ -173,7 +173,12 @@ def execute_llm(run_args, config, cache_dir, cache_timeout=None, progress_callba
                 max_timestamp = max(max_timestamp, output['timestamp'])
                 total_cost += output['cost'] if output.get('cost', None) is not None else 0
 
-        pending = _execute_delayed(run_args, config, cache_dir, llm_module)
+        if progress_callback:
+            r = progress_callback(0, 0, description="Processing delayed executions...")
+            if not r:
+                return max_timestamp
+
+        pending = _execute_delayed(run_args, config, cache_dir, llm_module, module_initialized, gui)
         print(pending)
 
         if pending:
@@ -293,7 +298,7 @@ def _execute_inner(run, cache_dir, argument_combination):
     return output
 
 
-def _execute_delayed(run_args, config, cache_dir, llm_module):
+def _execute_delayed(run_args, config, cache_dir, llm_module, initialized, gui):
     if 'exec_delayed' not in dir(llm_module):
         # If the module does not support delayed execution, return immediately
         return None
@@ -308,6 +313,13 @@ def _execute_delayed(run_args, config, cache_dir, llm_module):
                 data = json.load(file)
                 old_delayed_data[argument_combination.prompt_hash] = data
                 delayed_params[argument_combination.prompt_hash] = data['delayed']
+
+    if not delayed_params:
+        return 0
+
+    if not initialized:
+        llm_module.exec_init(gui=gui)
+        initialized = True
 
     new_delayed_data = llm_module.exec_delayed(delayed_params)
 
