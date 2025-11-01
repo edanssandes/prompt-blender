@@ -59,7 +59,7 @@ def main():
             print(df)
         exit()
 
-    if not os.path.exists(args.config):
+    if args.config and not os.path.exists(args.config):
         exit(f'Error: Configuration file not found: {args.config}')
 
     # GUI mode
