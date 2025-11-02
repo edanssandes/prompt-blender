@@ -163,6 +163,8 @@ cache/
 work/
 prompt_blender.config
 samples/
+videos
+screenshots
 videos/
 screenshots/
 whitepaper/
