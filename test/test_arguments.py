@@ -16,7 +16,7 @@ class TestGetDataFromFile:
         model = Model({})
         
         # Create a temporary text file
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=True, encoding='utf-8') as temp_file:
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', encoding='utf-8') as temp_file:
             temp_file.write("data1\ndata2\ndata3\n")
             temp_file_path = temp_file.name
             temp_file.flush()

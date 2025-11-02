@@ -11,7 +11,7 @@ from datetime import datetime
 from prompt_blender import info
 from importlib.util import spec_from_file_location, module_from_spec
 import docx2txt
-from PyPDF2 import PdfReader
+from pypdf import PdfReader
 
 import itertools
 import hashlib

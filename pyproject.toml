@@ -16,7 +16,7 @@ dependencies = [
   "wxPython>=4.2.1",
   "groq>=0.11.0",
   "docx2txt>=0.8",
-  "PyPDF2>=3.0.1",
+  "pypdf>=6.1.3",
   "mem0ai>=0.1.94",
   "dirtyjson>=1.0.8",
   "pydantic>=2.11.3",
@@ -33,7 +33,7 @@ authors = [
 description = "Tool designed to automate the generation, execution, and analysis of prompts for use in language learning models (LLMs). It simplifies the task of creating multiple prompts by automatically filling variables within a template, generating a Cartesian product of prompts, and analyzing the results returned by the model's API."
 readme = "README.md"
 license = {file = "LICENSE"}
-keywords = ["llm", "gpt", "prompt", "cross product", "automation"]
+keywords = ["llm", "gpt", "prompt", "cross product", "automation", "no code"]
 classifiers = [
   "Development Status :: 4 - Beta",
   "Programming Language :: Python"
