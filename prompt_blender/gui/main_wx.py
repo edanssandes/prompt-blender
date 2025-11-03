@@ -11,7 +11,7 @@ from prompt_blender.blend import blend_prompt
 
 from prompt_blender.llms import execute_llm
 from prompt_blender.gui.dialogs import ProgressDialog, RunConfigurationsDialog, InputListDialog
-from prompt_blender.gui.preferences import Preferences
+from prompt_blender.preferences import Preferences
 
 from prompt_blender.analysis import analyse_results
 

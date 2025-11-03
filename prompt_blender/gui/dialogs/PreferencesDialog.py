@@ -1,5 +1,5 @@
 import wx
-from prompt_blender.gui.preferences import Preferences
+from prompt_blender.preferences import Preferences
 
 
 

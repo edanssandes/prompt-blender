@@ -4,7 +4,7 @@ import pandas as pd
 
 from prompt_blender.blend import blend_prompt
 from prompt_blender.llms import execute_llm
-from prompt_blender.gui.preferences import Preferences
+from prompt_blender.preferences import Preferences
 from prompt_blender.model import Model
 
 from prompt_blender.gui import main_wx
