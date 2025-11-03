@@ -2,7 +2,7 @@ import os
 import wx
 from prompt_blender.gui.dialogs.PreferencesDialog import PreferencesDialog
 from prompt_blender.gui.PromptNotebookPanel import PromptPage
-from prompt_blender.gui.model import Model
+from prompt_blender.model import Model
 from prompt_blender.gui.MainMenu import MainMenu
 import wx.lib.agw.ultimatelistctrl as ULC
 import pandas as pd
