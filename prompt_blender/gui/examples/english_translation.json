@@ -16,7 +16,8 @@
         ]
     },
     "prompts": {
-        "English Translation": "Translate the English word \"{word}\" to {language}.\n\nProvide the translation in the following JSON format:\n{{\n\t\"translation\": \"<translated word>\",\n\t\"pronunciation\": \"<phonetic pronunciation guide>\"\n}}."
+        "English Translation": "Translate the English word \"{word}\" to {language}.\n\nProvide the translation in the following JSON format:\n{{\n\t\"translation\": \"<translated word>\"\n}}",
+        "Detailed Translation with Usage": "You are a language expert translating the English word \"{word}\" to {language}.\nProvide a detailed translation including pronunciation and an example sentence.\n\nFormat the response in JSON as follows:\n{{\n\t\"translation\": \"<translated word>\",\n\t\"pronunciation\": \"<phonetic pronunciation guide>\",\n\t\"example_sentence\": \"<example sentence in {language}>\"\n}}"
     },
     "runs": {
         
