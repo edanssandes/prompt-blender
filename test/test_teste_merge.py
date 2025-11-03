@@ -1,5 +1,5 @@
 import pytest
-from prompt_blender.gui.model import Model, ParameterCombination
+from prompt_blender.model import Model, ParameterCombination
 from unittest.mock import patch
 import tempfile
 import os

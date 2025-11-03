@@ -1,5 +1,5 @@
 import pytest
-from prompt_blender.gui.model import Model
+from prompt_blender.model import Model
 import pandas as pd
 import tempfile
 import os

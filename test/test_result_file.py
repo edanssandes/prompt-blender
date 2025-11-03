@@ -6,7 +6,7 @@ import zipfile
 import pandas as pd
 from unittest.mock import Mock, patch
 from prompt_blender import result_file
-from prompt_blender.gui.model import Model, ParameterCombination
+from prompt_blender.model import Model, ParameterCombination
 
 
 class TestResultFile:
