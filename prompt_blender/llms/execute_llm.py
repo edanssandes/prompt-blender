@@ -159,6 +159,10 @@ def execute_llm(run_args, config, cache_dir, cache_timeout=None, progress_callba
     max_timestamp = ''
     module_initialized = False
 
+    # All combinations must sleep at most 2 seconds in total. So, for N combinations:
+    # the maximum sleep time per combination is 2 seconds / N
+    sleep_time = min(max(2 / config.get_num_combinations(), 0.001), 0.1)
+
     try:
         for argument_combination in config.get_parameter_combinations(callback):
             output = get_cached_response(run_args, cache_dir, cache_timeout, argument_combination)
@@ -167,7 +171,7 @@ def execute_llm(run_args, config, cache_dir, cache_timeout=None, progress_callba
                     llm_module.exec_init(gui=gui)
                     module_initialized = True
                 output = _execute_inner(run_args, cache_dir, argument_combination)
-            time.sleep(0.005)  # This allows the animation to be shown in the GUI for executions that are too fast (e.g. full cache hits)
+            time.sleep(sleep_time)  # This allows the animation to be shown in the GUI for executions that are too fast (e.g. full cache hits)
 
             if output:
                 max_timestamp = max(max_timestamp, output['timestamp'])
