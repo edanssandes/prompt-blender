@@ -371,9 +371,9 @@ class MainFrame(wx.Frame):
         #add_list_button will show a menu with the options to "Add File", "Add Directory", etc.
         def on_add_list(event):
             menu = wx.Menu()
-            menu.Append(1, "Add List")
-            menu.Append(2, "Add File")
+            menu.Append(2, "Add Spreadsheet")
             menu.Append(3, "Add Directory")
+            menu.Append(1, "Add Manual List")
 
             def on_menu_click(event):
                 item = event.GetId()
