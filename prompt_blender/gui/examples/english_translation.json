@@ -1,0 +1,24 @@
+{
+    "parameters": {
+        "english_words": [
+            {"word": "hello"},
+            {"word": "goodbye"},
+            {"word": "thank you"},
+            {"word": "beautiful"},
+            {"word": "friendship"},
+            {"word": "knowledge"}
+        ],
+        "target_languages": [
+            {"language": "spanish"},
+            {"language": "french"},
+            {"language": "german"},
+            {"language": "portuguese"}
+        ]
+    },
+    "prompts": {
+        "English Translation": "Translate the English word \"{word}\" to {language}.\n\nProvide the translation in the following JSON format:\n{{\n\t\"translation\": \"<translated word>\",\n\t\"pronunciation\": \"<phonetic pronunciation guide>\"\n}}."
+    },
+    "runs": {
+        
+    }
+}

@@ -1,6 +1,8 @@
 import wx
 import wx.adv
 import prompt_blender.info
+import os
+import glob
 
 
 class MainMenu:
@@ -14,10 +16,13 @@ class MainMenu:
         self.menu_bar = None
         self.recent_menu = None
         
+        # Template directory and files
+        self.templates_dir = os.path.join(os.path.dirname(__file__), 'examples')
+        self.template_files = sorted(glob.glob(os.path.join(self.templates_dir, '*.json')))
+        
         # Callbacks - serão definidos pela classe principal
         self.callbacks = {
             'new_empty_project': None,
-            'new_from_example': None,
             'new_from_clipboard': None,
             'open_project': None,
             'save_project': None,
@@ -31,7 +36,8 @@ class MainMenu:
             'expire_cache_current': None,
             'expire_cache_all': None,
             'show_about': None,
-            'open_recent_file': None
+            'open_recent_file': None,
+            'load_example_template': None
         }
     
     def set_callback(self, action, callback):
@@ -67,8 +73,12 @@ class MainMenu:
         # Submenu New Project
         new_project_menu = wx.Menu()
         new_project_menu.Append(100, "Empty Project")
-        new_project_menu.Append(101, "From Example")
         new_project_menu.Append(102, "From Clipboard")
+        
+        # Submenu From Example with template files
+        example_menu = self._create_example_menu()
+        new_project_menu.AppendSubMenu(example_menu, "From Example")
+        
         file_menu.AppendSubMenu(new_project_menu, "New Project")
         
         # Outros itens do menu File
@@ -127,6 +137,27 @@ class MainMenu:
         
         return help_menu
     
+    def _create_example_menu(self):
+        """Cria o submenu From Example com os templates disponíveis"""
+        example_menu = wx.Menu()
+        
+        if not self.template_files:
+            example_menu.Append(4000, "No examples available")
+            example_menu.Enable(4000, False)
+        else:
+            # Adicionar cada template como item do menu
+            for i, template_file in enumerate(self.template_files):
+                template_name = os.path.splitext(os.path.basename(template_file))[0]
+                # Formatar o nome do template (substituir _ por espaços e capitalizar)
+                display_name = template_name.replace('_', ' ').title()
+                menu_id = 4000 + i
+                example_menu.Append(menu_id, display_name)
+        
+        # Bind eventos para os templates
+        example_menu.Bind(wx.EVT_MENU, self._on_example_template)
+        
+        return example_menu
+    
     def update_recent_files(self, recent_files):
         """Atualiza o menu de arquivos recentes"""
         if not self.recent_menu:
@@ -180,8 +211,6 @@ class MainMenu:
         event_id = event.GetId()
         if event_id == 100 and self.callbacks['new_empty_project']:
             self.callbacks['new_empty_project']()
-        elif event_id == 101 and self.callbacks['new_from_example']:
-            self.callbacks['new_from_example']()
         elif event_id == 102 and self.callbacks['new_from_clipboard']:
             self.callbacks['new_from_clipboard']()
     
@@ -242,6 +271,15 @@ class MainMenu:
         if self.callbacks['open_recent_file']:
             file_index = event.GetId() - 2000
             self.callbacks['open_recent_file'](file_index)
+    
+    def _on_example_template(self, event):
+        """Handler para templates de exemplo"""
+        if self.callbacks['load_example_template']:
+            # Encontrar o arquivo de template baseado no ID do menu
+            template_index = event.GetId() - 4000
+            if 0 <= template_index < len(self.template_files):
+                template_file = self.template_files[template_index]
+                self.callbacks['load_example_template'](template_file)
     
     def _show_default_about(self):
         """Mostra o diálogo About padrão"""

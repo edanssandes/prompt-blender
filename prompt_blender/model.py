@@ -89,39 +89,6 @@ class Model:
         return data
 
     @staticmethod
-    def create_from_template():
-        data = {
-            "parameters": {
-                "Celsius": [
-                    {"celsius_value": 4},
-                    {"celsius_value": 22},
-                    {"celsius_value": 100}
-                ],
-                "Fahrenheit": [
-                    {"fahrenheit_values": 39.2},
-                    {"fahrenheit_values": 71.6},
-                    {"fahrenheit_values": 212}
-                ]
-            },
-            "prompts": {
-                "Celsius to Fahrenheit": "A temperature of {celsius_value}°C is measured in Celsius.\nThe corresponding Fahrenheit reading was {fahrenheit_values}°F.\nUsing the formula F = (9/5) * C + 32, calculate the expected Fahrenheit value for {celsius_value}°C.\nCompare the calculated Fahrenheit value with the measured value.\n\nProvide the result in the following output JSON format:\n{{\n\t\"calculated_fahrenheit\": <calculated value>,\n\t\"measured_fahrenheit\": <measured value>,\n\t\"difference\": <absolute difference>,\n\t\"match\": <true if they match, else false>\n}}.",
-                "Fahrenheit to Celsius": "A temperature of {fahrenheit_values}°F is measured in Fahrenheit.\nThe corresponding Celsius reading was {celsius_value}°C.\nUsing the formula C = (5/9) * (F - 32), calculate the expected Celsius value for {fahrenheit_values}°F.\nCompare the calculated Celsius value with the original Celsius reading.\n\nProvide the result in the following output JSON format:\n{{\n\t\"calculated_celsius\": <calculated value>,\n\t\"measured_celsius\": <measured value>,\n\t\"difference\": <absolute difference>,\n\t\"match\": <true if they match, else false>\n}}."
-            },
-            "runs": {
-                "Teste 1": {
-                    "module_id": "66981b2d-3b8b-473a-9caf-3cd9c329f5d7",
-                    "module_args": {
-                        "stub_response": "Stub response from the dummy model. #1"
-                    }
-                }
-            }
-        }
-
-        model = Model(data)
-        model.is_modified = False
-        return model
-
-    @staticmethod
     def create_from_clipboard():
         s = pyperclip.paste()
         data = json.loads(s)
@@ -141,7 +108,26 @@ class Model:
         with open(file_path, 'r', encoding='utf-8') as file:
             data = json.load(file)
         model = Model(data)
-        model.file_path = file_path
+        model.file_path = file_path  # It tracks the file path for future saves
+        model.is_modified = False
+        return model
+
+    @staticmethod
+    def create_from_example(file_path):
+        with open(file_path, 'r', encoding='utf-8') as file:
+            data = json.load(file)
+
+        # Default run configuration
+        data['runs'] = {
+            "Dummy Run": {
+                "module_id": "66981b2d-3b8b-473a-9caf-3cd9c329f5d7",
+                "module_args": {
+                    "stub_response": "Stub response from the dummy model."
+                }
+            }
+        }
+
+        model = Model(data)
         model.is_modified = False
         return model
 

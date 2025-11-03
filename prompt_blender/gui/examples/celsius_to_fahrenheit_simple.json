@@ -1,0 +1,17 @@
+{
+    "parameters": {
+        "temperature_celsius": [
+            {"celsius": 0},
+            {"celsius": 25},
+            {"celsius": 100},
+            {"celsius": -40},
+            {"celsius": 37}
+        ]
+    },
+    "prompts": {
+        "Convert Celsius to Fahrenheit": "Convert {celsius} degrees Celsius to Fahrenheit.\n\nUse the formula: F = (9/5) * C + 32\n\nProvide the result in the following JSON format:\n{{\n\t\"fahrenheit\": <calculated fahrenheit value>\n}}."
+    },
+    "runs": {
+        
+    }
+}

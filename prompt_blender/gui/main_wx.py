@@ -33,8 +33,9 @@ class MainFrame(wx.Frame):
         if config_file:
             self.data = Model.create_from_file(config_file)
         else:
-            # Exemplo de dados para a árvore
-            self.data = Model.create_from_template()
+            # Create empty project by default example
+            default_example = os.path.join(os.path.dirname(__file__), 'examples', 'english_translation.json')
+            self.data = Model.create_from_example(default_example)
 
         self.data.add_on_modified_callback(self.update_project_state)
         self.selected_parameter = None
@@ -104,8 +105,8 @@ class MainFrame(wx.Frame):
         
         # Configurar callbacks
         self.main_menu.set_callback('new_empty_project', self._on_new_empty_project)
-        self.main_menu.set_callback('new_from_example', self._on_new_from_example)
         self.main_menu.set_callback('new_from_clipboard', self._on_new_from_clipboard)
+        self.main_menu.set_callback('load_example_template', self._on_load_example_template)
         self.main_menu.set_callback('open_project', self.open_project)
         self.main_menu.set_callback('save_project', self.save_project)
         self.main_menu.set_callback('save_project_as', self.save_project_as)
@@ -135,11 +136,12 @@ class MainFrame(wx.Frame):
         self.reset_view_mode()
         self.populate_data()
     
-    def _on_new_from_example(self):
-        """Callback para criar projeto a partir de exemplo"""
+    def _on_load_example_template(self, template_file):
+        """Callback para carregar template de exemplo"""
         if not self.ask_save_changes():
             return
-        self.data = Model.create_from_template()
+        
+        self.data = Model.create_from_example(template_file)
         self.data.add_on_modified_callback(self.update_project_state)
         self.reset_view_mode()
         self.populate_data()
