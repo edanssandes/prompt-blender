@@ -24,10 +24,16 @@ def analyse(response, timestamp):
         api_type = 'response_api'
         #print(json.dumps(outputs, indent=2, ensure_ascii=False))
     elif not response:
-        outputs = []
+        analysis.append({'_error': 'Null response', '_timestamp': timestamp})
+        return analysis
     else:
-        raise ValueError("Response does not contain 'choices' or 'output' key")
+        analysis.append({'_error': f'Unknown response format: {str(response.keys())}', '_timestamp': timestamp})
+        return analysis
     
+    if not outputs:
+        analysis.append({'_error': 'Empty response from API', '_timestamp': timestamp})
+        return analysis
+
     multiple_choices = len(outputs) > 1
 
     for idx_choice, choice in enumerate(outputs):
@@ -61,8 +67,6 @@ def analyse(response, timestamp):
         except ValueError as e:
             analysis.append({'_error': str(e), '_raw': content, '_timestamp': timestamp})
 
-    if not outputs:
-        analysis.append({'_error': 'Empty response from API', '_timestamp': timestamp})
 
     return analysis
 
