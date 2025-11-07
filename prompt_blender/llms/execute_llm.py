@@ -6,6 +6,7 @@ import copy
 import traceback
 
 from prompt_blender import info
+from prompt_blender.analysis import gpt_json
 
 def load_modules(paths):
     """
@@ -61,7 +62,7 @@ def load_modules(paths):
     return modules
 
 
-def expire_cache(run_args, config, cache_dir, cache_timeout=None, progress_callback=None, combinations=None):
+def expire_cache(run_args, config, cache_dir, cache_timeout=None, progress_callback=None, combinations=None, error_items_only=False):
     """
     Expire the cache for the given run arguments and configuration.
     
@@ -88,15 +89,35 @@ def expire_cache(run_args, config, cache_dir, cache_timeout=None, progress_callb
     if combinations is None:
         combinations = config.get_parameter_combinations(callback)
 
+    expired_count = 0
     for argument_combination in combinations:
         result_file = os.path.join(cache_dir, argument_combination.get_result_file(run_args['run_hash']))
         delayed_file = result_file + '.delayed'
-        print("EXPIRING", result_file, delayed_file)
+
+        if error_items_only and not is_result_with_error(result_file):
+            continue
+
+        #print("EXPIRING", result_file)
         expire_file(cache_timeout, result_file)
         expire_file(cache_timeout, delayed_file)
+        expired_count += 1
 
     if progress_callback:
         progress_callback(0, 0, description="Finishing up...")
+
+    return expired_count
+
+def is_result_with_error(result_file):
+    if os.path.exists(result_file):
+        with open(result_file, 'r', encoding='utf-8') as file:
+            output = json.load(file)
+        analysis_results = gpt_json.analyse(output['response'], output['timestamp'])
+        
+        for r in analysis_results:
+            if r.get('_error', None):
+                print(r)
+                return True
+    return False
 
 def expire_file(cache_timeout, file):
     if os.path.exists(file):
