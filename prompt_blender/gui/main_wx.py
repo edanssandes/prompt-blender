@@ -27,11 +27,11 @@ SUPPORTED_ENCODINGS = ["utf-8", "latin1", "windows-1252", "utf-16", "utf-32", "a
 
 class MainFrame(wx.Frame):
     TITLE = 'Prompt Blender'
-    def __init__(self, parent, config_file=None):
+    def __init__(self, parent, model=None):
         super(MainFrame, self).__init__(parent, title=MainFrame.TITLE, size=(800, 600))
 
-        if config_file:
-            self.data = Model.create_from_file(config_file)
+        if model:
+            self.data = model
         else:
             # Create empty project by default example
             default_example = os.path.join(os.path.dirname(__file__), 'examples', 'english_translation.json')
@@ -1261,9 +1261,9 @@ class MainFrame(wx.Frame):
 
 
 
-def run(config_file=None):
+def run(model=None):
     app = wx.App(False)
-    frame = MainFrame(None, config_file=config_file)
+    frame = MainFrame(None, model=model)
     app.MainLoop()
 
 

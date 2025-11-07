@@ -62,10 +62,24 @@ def main():
     if args.config and not os.path.exists(args.config):
         exit(f'Error: Configuration file not found: {args.config}')
 
+    if args.config:
+        # Load configuration
+        model = Model.create_from_file(args.config)
+
+        # Apply merge(s) if specified
+        if args.merge:
+            merge_csv_parameters(model, args.merge)
+
+
+    else:
+        model = None
+
     # GUI mode
     if not args.run:
-        main_wx.run(args.config)
+        main_wx.run(model=model)
         exit()
+    elif model is None:
+        exit('Error: Configuration file must be provided in non-GUI mode.')
 
     # Non-GUI execution
 
@@ -81,15 +95,9 @@ def main():
     if os.path.exists(output_zip) and not args.overwrite:
         exit(f'Error: Output file already exists: {output_zip}. Use --overwrite to overwrite it.')
 
-    # Load configuration
-    config = Model.create_from_file(args.config)
 
     # Load preferences from config file
     preferences = Preferences.load_from_file(args.preferences)
-
-    # Apply merge(s) if specified
-    if args.merge:
-        merge_csv_parameters(config, args.merge)
 
     if args.cache_dir:
         cache_dir = args.cache_dir
@@ -100,22 +108,22 @@ def main():
     llm_modules = execute_llm.load_modules(["./plugins"])
 
     print('Generating prompts...', end='')
-    output_files = blend_prompt(config, cache_dir)
+    output_files = blend_prompt(model, cache_dir)
     print(f' Done: {len(output_files)} files generated.')
 
     analysis_results = {}
     max_cost = 0  # Unlimited
     cache_timeout = None
 
-    run_args = config.get_run_args(llm_modules)
+    run_args = model.get_run_args(llm_modules)
 
     for name, run in run_args.items():
-        execute_llm.execute_llm(run, config, cache_dir, progress_callback=None, cache_timeout=cache_timeout, max_cost=max_cost)
-        ret = analyse_results.analyse_results(run, config, cache_dir, analyse_functions)
+        execute_llm.execute_llm(run, model, cache_dir, progress_callback=None, cache_timeout=cache_timeout, max_cost=max_cost)
+        ret = analyse_results.analyse_results(run, model, cache_dir, analyse_functions)
         analysis_results[name] = ret
 
     print(f'Saving results to {output_zip}...')
-    result_file.save_analysis_results(output_zip, cache_dir, analysis_results, config, run_args)
+    result_file.save_analysis_results(output_zip, cache_dir, analysis_results, model, run_args)
     print('Done')
 
 
