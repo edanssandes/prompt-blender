@@ -116,8 +116,9 @@ class MainFrame(wx.Frame):
         self.main_menu.set_callback('run_combinations', self.execute_prompts)
         self.main_menu.set_callback('blend_prompts', self.run_blend)
         self.main_menu.set_callback('export_results', self.export_results)
-        self.main_menu.set_callback('expire_cache_current', lambda: self.expire_cache(current_item_only=True))
-        self.main_menu.set_callback('expire_cache_all', lambda: self.expire_cache(current_item_only=False))
+        self.main_menu.set_callback('expire_cache_all', lambda: self.expire_cache('all'))
+        self.main_menu.set_callback('expire_cache_error_items', lambda: self.expire_cache('error_items'))
+        self.main_menu.set_callback('expire_cache_current_item', lambda: self.expire_cache('current_item'))
         self.main_menu.set_callback('show_about', None)  # Usa implementação padrão
         self.main_menu.set_callback('open_recent_file', self._on_open_recent_file)
         
@@ -960,12 +961,16 @@ class MainFrame(wx.Frame):
         output_dir = self.preferences.cache_dir
         blend_prompt(self.data, output_dir, self.progress_dialog.update_progress)
 
-    def expire_cache(self, current_item_only):
+    def expire_cache(self, expire_type='all'):
         # Ask for confirmation
-        if current_item_only:
+        if expire_type == 'current_item':
             ret = wx.MessageBox("Are you sure you want to expire the cache?\nThis will remove the cached results for the current selected item.", "Confirmation", wx.YES_NO | wx.ICON_QUESTION)
-        else:
+        elif expire_type == 'all':
             ret = wx.MessageBox("Are you sure you want to expire the cache?\nThis will remove ALL cached results for this execution.", "Confirmation", wx.YES_NO | wx.ICON_QUESTION)
+        elif expire_type == 'error_items':
+            ret = wx.MessageBox("Are you sure you want to expire the cache?\nThis will remove cached results for items that had errors in JSON analysis.", "Confirmation", wx.YES_NO | wx.ICON_QUESTION)
+        else:
+            return
     
         if ret != wx.YES:
             return
@@ -974,16 +979,27 @@ class MainFrame(wx.Frame):
         output_dir = self.preferences.cache_dir
         run_args = self.data.get_run_args(self.llm_modules)
 
+        expired_count = 0
+
         for _, run in run_args.items():
-            if not current_item_only:
+            if expire_type == 'all':
                 current_combinations = None
-            else:
+                error_items_only = False
+            elif expire_type == 'error_items':
+                current_combinations = None
+                error_items_only = True
+            elif expire_type == 'current_item':
                 prompt_name = self.prompt_pages[self.notebook.GetSelection()].title
                 current_combinations = [self.data.get_current_combination(prompt_name)]
+                error_items_only = False
 
-            execute_llm.expire_cache(run, self.data, output_dir, cache_timeout=0, combinations=current_combinations)#, progress_callback=self.progress_dialog.update_progress)
+            r = execute_llm.expire_cache(run, self.data, output_dir, cache_timeout=0, combinations=current_combinations, error_items_only=error_items_only)  #, progress_callback=self.progress_dialog.update_progress)
+            expired_count += r
 
-        wx.MessageBox("Cache expired successfully.", "Success", wx.OK | wx.ICON_INFORMATION)
+        if expired_count == 0:
+            wx.MessageBox("No cached items to expire.", "Information", wx.OK | wx.ICON_INFORMATION)
+        else:
+            wx.MessageBox(f"{expired_count} cached items expired successfully.", "Success", wx.OK | wx.ICON_INFORMATION)
 
 
     def task_all(self):

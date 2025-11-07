@@ -33,8 +33,9 @@ class MainMenu:
             'run_combinations': None,
             'blend_prompts': None,
             'export_results': None,
-            'expire_cache_current': None,
             'expire_cache_all': None,
+            'expire_cache_current_item': None,
+            'expire_cache_error_items': None,
             'show_about': None,
             'open_recent_file': None,
             'load_example_template': None
@@ -118,8 +119,9 @@ class MainMenu:
         
         # Submenu Expire Cache
         expire_cache_menu = wx.Menu()
-        expire_cache_menu.Append(3004, "Current Item")
         expire_cache_menu.Append(3005, "All Items")
+        expire_cache_menu.Append(3004, "Current Item")
+        expire_cache_menu.Append(3006, "Error Items Only")
         run_menu.AppendSubMenu(expire_cache_menu, "Expire Cache")
         
         # Bind eventos
@@ -253,10 +255,12 @@ class MainMenu:
             self.callbacks['blend_prompts']()
         elif event_id == 3003 and self.callbacks['export_results']:
             self.callbacks['export_results']()
-        elif event_id == 3004 and self.callbacks['expire_cache_current']:
-            self.callbacks['expire_cache_current']()
         elif event_id == 3005 and self.callbacks['expire_cache_all']:
             self.callbacks['expire_cache_all']()
+        elif event_id == 3004 and self.callbacks['expire_cache_current_item']:
+            self.callbacks['expire_cache_current_item']()
+        elif event_id == 3006 and self.callbacks['expire_cache_error_items']:
+            self.callbacks['expire_cache_error_items']()
     
     def _on_about(self, event):
         """Handler para About"""
