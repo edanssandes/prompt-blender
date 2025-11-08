@@ -1062,7 +1062,7 @@ class MainFrame(wx.Frame):
             return None
 
         if timestamp is None:
-            timestamp = datetime.now().strftime('%s')
+            timestamp = int(datetime.now().timestamp())
 
         # The zipfile name is the result name with the timestamp
         zipfile_name = f'tmp_{timestamp}.zip'

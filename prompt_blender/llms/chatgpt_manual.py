@@ -55,7 +55,7 @@ def exec(prompt):
 
 
     # Generate The Unix timestamp (in seconds) of when the chat completion was created
-    timestamp = datetime.now().strftime('%s')
+    timestamp = int(datetime.now().timestamp())
 
     # Mimic the OpenAI ChatGPT response
     response_dump = {
