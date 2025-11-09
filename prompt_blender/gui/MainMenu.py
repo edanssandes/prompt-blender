@@ -36,6 +36,7 @@ class MainMenu:
             'expire_cache_all': None,
             'expire_cache_current_item': None,
             'expire_cache_error_items': None,
+            'import_cache': None,
             'show_about': None,
             'open_recent_file': None,
             'load_example_template': None
@@ -122,6 +123,7 @@ class MainMenu:
         expire_cache_menu.Append(3005, "All Items")
         expire_cache_menu.Append(3004, "Current Item")
         expire_cache_menu.Append(3006, "Error Items Only")
+        #expire_cache_menu.Append(3007, "Import Cache")
         run_menu.AppendSubMenu(expire_cache_menu, "Expire Cache")
         
         # Bind eventos
@@ -261,6 +263,8 @@ class MainMenu:
             self.callbacks['expire_cache_current_item']()
         elif event_id == 3006 and self.callbacks['expire_cache_error_items']:
             self.callbacks['expire_cache_error_items']()
+        elif event_id == 3007 and self.callbacks['import_cache']:
+            self.callbacks['import_cache']()
     
     def _on_about(self, event):
         """Handler para About"""

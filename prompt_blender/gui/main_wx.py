@@ -119,6 +119,7 @@ class MainFrame(wx.Frame):
         self.main_menu.set_callback('expire_cache_all', lambda: self.expire_cache('all'))
         self.main_menu.set_callback('expire_cache_error_items', lambda: self.expire_cache('error_items'))
         self.main_menu.set_callback('expire_cache_current_item', lambda: self.expire_cache('current_item'))
+        self.main_menu.set_callback('import_cache', self.import_cache)
         self.main_menu.set_callback('show_about', None)  # Usa implementação padrão
         self.main_menu.set_callback('open_recent_file', self._on_open_recent_file)
         
@@ -1001,6 +1002,84 @@ class MainFrame(wx.Frame):
         else:
             wx.MessageBox(f"{expired_count} cached items expired successfully.", "Success", wx.OK | wx.ICON_INFORMATION)
 
+    def import_cache(self, read_only=True):
+        """Import cache from a ZIP file containing results"""
+        # Ask for ZIP file to import
+        dialog = wx.FileDialog(self, "Select ZIP file to import cache from", wildcard="Zip files (*.zip)|*.zip", style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST)
+        if dialog.ShowModal() != wx.ID_OK:
+            return
+        zip_path = dialog.GetPath()
+        
+        # Confirm import
+        mode = "read-only" if read_only else "overwrite"
+        ret = wx.MessageBox(f"Are you sure you want to import cache from '{os.path.basename(zip_path)}' in {mode} mode?\nThis will copy cached results to your current cache directory.", "Confirmation", wx.YES_NO | wx.ICON_QUESTION)
+        if ret != wx.YES:
+            return
+        
+        try:
+            stats = self._import_cache_from_zip(zip_path, read_only=read_only)
+            message = f"Cache import completed:\n" \
+                     f"Copied: {stats['copied']}\n" \
+                     f"Equal: {stats['equal']}\n" \
+                     f"Different: {stats['different']}"
+            wx.MessageBox(message, "Import Results", wx.OK | wx.ICON_INFORMATION)
+        except Exception as e:
+            wx.MessageBox(f"Error importing cache: {str(e)}", "Error", wx.OK | wx.ICON_ERROR)
+
+    def _import_cache_from_zip(self, zip_path, read_only=False):
+        """Extract cache folder from ZIP file to current cache directory
+        
+        Args:
+            zip_path (str): Path to the ZIP file
+            read_only (bool): If True, do not modify files, just return statistics
+            
+        Returns:
+            dict: Statistics with keys 'copied', 'equal', 'different'
+        """
+        import zipfile
+        import os
+        
+        cache_dir = os.path.join(self.preferences.cache_dir, 'cache')
+        stats = {'copied': 0, 'equal': 0, 'different': 0}
+        
+        with zipfile.ZipFile(zip_path, 'r') as zipf:
+            # Find all files in the 'cache' folder within the ZIP
+            cache_files = [f for f in zipf.namelist() if f.startswith('cache/')]
+            
+            for file_path in cache_files:
+                # Extract to the cache directory, maintaining the relative path
+                target_path = os.path.join(cache_dir, os.path.relpath(file_path, 'cache'))
+                
+                # Read content from ZIP
+                with zipf.open(file_path) as source:
+                    zip_content = source.read().decode('utf-8')
+                
+                if os.path.exists(target_path):
+                    # File exists, compare content
+                    with open(target_path, 'r', encoding='utf-8') as target:
+                        existing_content = target.read()
+                    
+                    if zip_content == existing_content:
+                        stats['equal'] += 1
+                    else:
+                        stats['different'] += 1
+                        if not read_only:
+                            # Overwrite
+                            os.makedirs(os.path.dirname(target_path), exist_ok=True)
+                            with open(target_path, 'w', encoding='utf-8') as target:
+                                target.write(zip_content)
+                            # Already counted as different
+                else:
+                    print(">", target_path)
+                    # File does not exist
+                    stats['copied'] += 1
+                    if not read_only:
+                        # Copy it
+                        os.makedirs(os.path.dirname(target_path), exist_ok=True)
+                        with open(target_path, 'w', encoding='utf-8') as target:
+                            target.write(zip_content)
+        
+        return stats
 
     def task_all(self):
         #llm_module = self.execute_dialog.get_selected_module()
