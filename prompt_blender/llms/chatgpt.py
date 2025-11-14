@@ -100,6 +100,7 @@ def exec(prompt, gpt_model, gpt_args, gpt_json, batch_mode, web_search):
             del gpt_args['n']
         if 'response_format' in gpt_args:
             del gpt_args['response_format']
+        web_search = False  # Keep chat_completion_api without web search tool (model already has search capability)
 
     if web_search:
         api_type = 'response_api'
@@ -154,7 +155,7 @@ def exec(prompt, gpt_model, gpt_args, gpt_json, batch_mode, web_search):
             response_text_options["format"] = {"type": "json_object"}
 
         if web_search:
-            tools = [{"type": "web_search_preview"}]
+            tools = [{"type": "web_search"}]
 
         response = client.responses.create(
             model=gpt_model,
@@ -392,10 +393,25 @@ class ConfigPanel(wx.Panel):
         # Model name combo box
         self.model_label = wx.StaticText(self, label="Model Name:")
         vbox.Add(self.model_label, flag=wx.LEFT | wx.TOP, border=5)
-        model_choices = ["gpt-4o-mini", "gpt-4o", "gpt-4-turbo", "gpt-3.5-turbo", "gpt-4o-mini-search-preview", "gpt-4.1-nano", "gpt-4.1-mini", "gpt-5-mini", "gpt-5-nano"]  # Add more models as needed
+        model_choices = [
+            "gpt-4o-mini", 
+            "gpt-4o", 
+            "gpt-4-turbo", 
+            "gpt-3.5-turbo", 
+            "gpt-4o-mini-search-preview", 
+            "gpt-4o-search-preview",
+            "gpt-4.1-nano", 
+            "gpt-4.1-mini", 
+            "gpt-5-mini", 
+            "gpt-5-nano",
+            "gpt-5-search-api",
+            ]  # Add more models as needed
         self.model_combo = wx.ComboBox(self, choices=model_choices, style=wx.CB_DROPDOWN)
         self.model_combo.SetValue(DEFAULT_MODEL)  # Set the default value
         vbox.Add(self.model_combo, flag=wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, border=5)
+
+        # Bind event for model change
+        self.model_combo.Bind(wx.EVT_COMBOBOX, self.on_model_change)
 
         # n selection
         self.n_label = wx.StaticText(self, label="N value:")
@@ -433,10 +449,23 @@ class ConfigPanel(wx.Panel):
 
         self.Fit()
 
+        # Initialize checkbox states based on default model
+        self.on_model_change(None)
+
+
     def on_temp_scroll(self, event):
         # Calculate the actual temperature value based on the slider position
         temp_value = self.temperature_slider.GetValue() / 100.0
         self.temperature_label.SetLabel(f"Temperature: {temp_value:.2f}")
+
+    def on_model_change(self, event):
+        model = self.model_combo.GetValue()
+        if "-search" in model:
+            self.web_search_checkbox.Enable(False)
+            self.json_mode_checkbox.Enable(False)
+        else:
+            self.web_search_checkbox.Enable(True)
+            self.json_mode_checkbox.Enable(True)
 
     
     @property
