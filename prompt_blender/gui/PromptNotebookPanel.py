@@ -31,6 +31,8 @@ class PromptPage(wx.Panel):
         font.SetPointSize(8)  # Small font
         self.char_count_label.SetFont(font)
         self.char_count_label.SetForegroundColour(wx.Colour(128, 128, 128))  # Gray color
+        self.char_count_label.SetBackgroundColour(wx.Colour(255, 255, 255, 0))  # Transparent background
+
 
         # Position the label in bottom-right corner
         editor_sizer.Add(self.prompt_editor, 1, wx.EXPAND)
