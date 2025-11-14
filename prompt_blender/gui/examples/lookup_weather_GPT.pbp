@@ -1,0 +1,27 @@
+{
+    "parameters": {
+        "cities": [
+            {"city": "Brasília"},
+            {"city": "New York"},
+            {"city": "Paris"}
+        ]
+    },
+    "prompts": {
+        "Lookup Prompt": "Look up on the web for the weather forecast in {city}."
+    },
+    "runs": {
+        "GPT - web search": {
+            "module_id": "b85680ef-8da2-4ed5-b881-ce33fe5d3ec0",
+            "module_args": {
+                "gpt_args": {
+                    "n": 1,
+                    "temperature": 1.0
+                },
+                "gpt_model": "gpt-4.1-mini",
+                "gpt_json": false,
+                "web_search": true,
+                "batch_mode": false
+            }
+        }
+    }
+}

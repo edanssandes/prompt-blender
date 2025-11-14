@@ -17,8 +17,7 @@ class MainMenu:
         self.recent_menu = None
         
         # Template directory and files
-        self.templates_dir = os.path.join(os.path.dirname(__file__), 'examples')
-        self.template_files = sorted(glob.glob(os.path.join(self.templates_dir, '*.json')))
+        self.template_files = MainMenu.load_templates()
         
         # Callbacks - serão definidos pela classe principal
         self.callbacks = {
@@ -41,7 +40,14 @@ class MainMenu:
             'open_recent_file': None,
             'load_example_template': None
         }
-    
+
+    @staticmethod
+    def load_templates():
+        """Carrega arquivos de template de um diretório específico"""
+        templates_dir = os.path.join(os.path.dirname(__file__), 'examples')
+        template_files = sorted(glob.glob(os.path.join(templates_dir, '*.pbp')))
+        return template_files
+
     def set_callback(self, action, callback):
         """Define um callback para uma ação específica"""
         if action in self.callbacks:

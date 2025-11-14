@@ -118,14 +118,15 @@ class Model:
             data = json.load(file)
 
         # Default run configuration
-        data['runs'] = {
-            "Dummy Run": {
-                "module_id": "66981b2d-3b8b-473a-9caf-3cd9c329f5d7",
-                "module_args": {
-                    "stub_response": "Stub response from the dummy model."
+        if 'runs' not in data or not data['runs']:
+            data['runs'] = {
+                "Dummy Run": {
+                    "module_id": "66981b2d-3b8b-473a-9caf-3cd9c329f5d7",
+                    "module_args": {
+                        "stub_response": "Stub response from the dummy model."
+                    }
                 }
             }
-        }
 
         model = Model(data)
         model.is_modified = False

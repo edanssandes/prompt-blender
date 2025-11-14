@@ -34,7 +34,7 @@ class MainFrame(wx.Frame):
             self.data = model
         else:
             # Create empty project by default example
-            default_example = os.path.join(os.path.dirname(__file__), 'examples', 'english_translation.json')
+            default_example = os.path.join(os.path.dirname(__file__), 'examples', 'english_translation.pbp')
             self.data = Model.create_from_example(default_example)
 
         self.data.add_on_modified_callback(self.update_project_state)
