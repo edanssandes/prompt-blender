@@ -14,7 +14,9 @@ class PromptPage(wx.Panel):
         self.disabled = False
         self.on_change = on_change
 
-        # Sizer para o layout da página
+        # Debounce timer for text changes
+        self.debounce_timer = wx.Timer(self)
+        self.Bind(wx.EVT_TIMER, self._on_debounce_timer, self.debounce_timer)
         sizer = wx.BoxSizer(wx.VERTICAL)
 
         # Create a panel to hold the text editor and overlay label
@@ -37,10 +39,9 @@ class PromptPage(wx.Panel):
         # Bind text change event
         def on_prompt_change(event):
             if self.view_mode == 0:
-                self.data.set_prompt(self.prompt_name, self.prompt_editor.GetValue())
-                self.highlight_prompt()
-            if self.on_change:
-                self.on_change()
+                # Start/restart debounce timer
+                self.debounce_timer.Stop()
+                self.debounce_timer.StartOnce(200)
 
         self.prompt_editor.Bind(wx.EVT_TEXT, on_prompt_change)
 
@@ -49,6 +50,14 @@ class PromptPage(wx.Panel):
         self.SetSizer(sizer)
 
         self.refresh()
+
+    def _on_debounce_timer(self, event):
+        """Called after some time of no text changes to update prompt and highlight. This reduce flickering. """
+        if self.view_mode == 0:
+            self.data.set_prompt(self.prompt_name, self.prompt_editor.GetValue())
+            self.highlight_prompt()
+        if self.on_change:
+            self.on_change()
 
 
 
