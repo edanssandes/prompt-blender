@@ -833,12 +833,15 @@ class MainFrame(wx.Frame):
                 new_prompt_name = self.data.add_prompt()
 
                 # Add a new page
-                prompt_page = PromptPage(self.notebook, self.data, new_prompt_name)
+                prompt_page = PromptPage(self.notebook, self.data, new_prompt_name, on_change=self.update_status_label)
                 self.notebook.InsertPage(selected_page_id, prompt_page, prompt_page.title)
                 self.prompt_pages.append(prompt_page)
 
                 #self.notebook.SetSelection(self.notebook.GetPageCount() - 2)
                 event.Veto()
+
+            # Update status label for normal page changes
+            self.update_status_label()
 
             # Remove focus from the prompt editor
             self.SetFocus()
@@ -946,8 +949,16 @@ class MainFrame(wx.Frame):
         # bind the checkbox event. 
         def on_view_mode(event):
             self.refresh_prompts()
+            self.update_status_label()
 
         self.view_mode.Bind(wx.EVT_CHOICE, on_view_mode)
+
+        # Add status label on the right of the mode combo box
+        self.status_label = wx.StaticText(panel, label="(info)")
+        font = self.status_label.GetFont()
+        font.SetPointSize(8)  # Small font
+        self.status_label.SetFont(font)
+        hbox.Add(self.status_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 5)
 
         # Separate both widgets with a stretchable space
         hbox.AddStretchSpacer()
@@ -1240,7 +1251,7 @@ class MainFrame(wx.Frame):
         self.prompt_pages = []
         first_enabled_page_id = None
         for prompt_name in data.get_prompt_names():
-            prompt_page = PromptPage(self.notebook, self.data, prompt_name)
+            prompt_page = PromptPage(self.notebook, self.data, prompt_name, on_change=self.update_status_label)
             disabled = data.is_prompt_disabled(prompt_name)
             prompt_page.set_disabled(disabled)
             self.notebook.AddPage(prompt_page, prompt_page.title)
@@ -1252,6 +1263,9 @@ class MainFrame(wx.Frame):
         # Select first enabled page
         if first_enabled_page_id is not None:
             self.notebook.SetSelection(first_enabled_page_id)
+
+        # Update status label for the selected page
+        self.update_status_label()
 
         # Add a page with a "+" icon to add new prompts
         self.notebook.AddPage(wx.Panel(self.notebook), "", imageId=2) 
@@ -1388,6 +1402,18 @@ class MainFrame(wx.Frame):
         """Set zoom level for all prompt editors"""
         for prompt_page in self.prompt_pages:
             prompt_page.set_zoom(zoom_percentage)
+
+    def update_status_label(self):
+        """Update the status label to indicate prompt modification"""
+        selected_page_id = self.notebook.GetSelection()
+        print("Update status label", selected_page_id)
+        if self.view_mode.GetSelection() == 0 and 0 <= selected_page_id < len(self.prompt_pages):
+            prompt_name = self.prompt_pages[selected_page_id].title
+            prompt_text = self.data.get_prompt(prompt_name)
+            char_count = len(prompt_text)
+            self.status_label.SetLabel(f"{char_count} chars")
+        else:
+            self.status_label.SetLabel("")
 
 
 def run(model=None):
