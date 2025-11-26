@@ -1406,7 +1406,7 @@ class MainFrame(wx.Frame):
     def update_status_label(self):
         """Update the status label to indicate prompt modification"""
         selected_page_id = self.notebook.GetSelection()
-        print("Update status label", selected_page_id)
+        #print("Update status label", selected_page_id)
         if self.view_mode.GetSelection() == 0 and 0 <= selected_page_id < len(self.prompt_pages):
             prompt_name = self.prompt_pages[selected_page_id].title
             prompt_text = self.data.get_prompt(prompt_name)
