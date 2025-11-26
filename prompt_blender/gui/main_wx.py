@@ -134,6 +134,7 @@ class MainFrame(wx.Frame):
         self.main_menu.set_callback('import_cache', self.import_cache)
         self.main_menu.set_callback('show_about', None)  # Usa implementação padrão
         self.main_menu.set_callback('open_recent_file', self._on_open_recent_file)
+        self.main_menu.set_callback('zoom', self.set_zoom)
         
         # Criar menus
         self.main_menu.create_menus()
@@ -1381,6 +1382,12 @@ class MainFrame(wx.Frame):
                 # default color
                 self.notebook.SetPageTextColour(idx, wx.Colour(0, 0, 0))
 
+
+
+    def set_zoom(self, zoom_percentage):
+        """Set zoom level for all prompt editors"""
+        for prompt_page in self.prompt_pages:
+            prompt_page.set_zoom(zoom_percentage)
 
 
 def run(model=None):

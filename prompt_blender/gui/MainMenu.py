@@ -11,6 +11,9 @@ class MainMenu:
     Utiliza callbacks para separar a lógica de negócio da interface.
     """
     
+    # Zoom levels available in the menu
+    ZOOM_LEVELS = [50, 75, 100, 125, 150, 200]
+    
     def __init__(self, parent_frame):
         self.parent = parent_frame
         self.menu_bar = None
@@ -18,6 +21,12 @@ class MainMenu:
         
         # Template directory and files
         self.template_files = MainMenu.load_templates()
+        
+        # Current zoom level (percentage)
+        self.current_zoom = 100
+        
+        # Zoom menu items for updating checkmarks
+        self.zoom_menu_items = {}
         
         # Callbacks - serão definidos pela classe principal
         self.callbacks = {
@@ -38,7 +47,8 @@ class MainMenu:
             'import_cache': None,
             'show_about': None,
             'open_recent_file': None,
-            'load_example_template': None
+            'load_example_template': None,
+            'zoom': None
         }
 
     @staticmethod
@@ -62,11 +72,13 @@ class MainMenu:
         # Criar menus principais
         file_menu = self._create_file_menu()
         run_menu = self._create_run_menu()
+        view_menu = self._create_view_menu()
         help_menu = self._create_help_menu()
         
         # Adicionar menus à barra
         self.menu_bar.Append(file_menu, "File")
         self.menu_bar.Append(run_menu, "Run")
+        self.menu_bar.Append(view_menu, "View")
         self.menu_bar.Append(help_menu, "Help")
         
         # Configurar a barra de menu no frame
@@ -146,6 +158,38 @@ class MainMenu:
         help_menu.Bind(wx.EVT_MENU, self._on_about, id=wx.ID_ABOUT)
         
         return help_menu
+    
+    def _create_view_menu(self):
+        """Cria o menu View"""
+        view_menu = wx.Menu()
+        
+        # Submenu Zoom
+        zoom_menu = wx.Menu()
+        for i, level in enumerate(MainMenu.ZOOM_LEVELS):
+            item_id = 15001 + i
+            item = zoom_menu.Append(item_id, f"{level}%", kind=wx.ITEM_RADIO)
+            self.zoom_menu_items[level] = item
+            if level == self.current_zoom:
+                item.Check(True)
+        
+        view_menu.AppendSubMenu(zoom_menu, "Zoom")
+        
+        # Bind eventos
+        zoom_menu.Bind(wx.EVT_MENU, self._on_zoom)
+        
+        return view_menu
+    
+    def update_zoom_checkmarks(self):
+        """Update the checkmarks in the zoom menu based on current_zoom"""
+        for level, item in self.zoom_menu_items.items():
+            item.Check(level == self.current_zoom)
+    
+    def _set_zoom(self, zoom_percentage):
+        """Set the current zoom level and update menu checkmarks"""
+        self.current_zoom = zoom_percentage
+        self.update_zoom_checkmarks()
+        if self.callbacks['zoom']:
+            self.callbacks['zoom'](zoom_percentage)
     
     def _create_example_menu(self):
         """Cria o submenu From Example com os templates disponíveis"""
@@ -294,6 +338,14 @@ class MainMenu:
             if 0 <= template_index < len(self.template_files):
                 template_file = self.template_files[template_index]
                 self.callbacks['load_example_template'](template_file)
+    
+    def _on_zoom(self, event):
+        """Handler for all zoom menu items"""
+        event_id = event.GetId()
+        zoom_index = event_id - 15001
+        if 0 <= zoom_index < len(MainMenu.ZOOM_LEVELS):
+            zoom_percentage = MainMenu.ZOOM_LEVELS[zoom_index]
+            self._set_zoom(zoom_percentage)
     
     def _show_default_about(self):
         """Mostra o diálogo About padrão"""

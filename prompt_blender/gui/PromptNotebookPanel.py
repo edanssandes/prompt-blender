@@ -191,6 +191,18 @@ class PromptPage(wx.Panel):
         # Reposition label in case size changed
         wx.CallAfter(self.position_char_count_label)
 
+    def set_zoom(self, zoom_percentage):
+        """Set the zoom level for the prompt editor font"""
+        base_font_size = 10  # Default font size
+        font_size = int(base_font_size * zoom_percentage / 100.0)
+        
+        font = self.prompt_editor.GetFont()
+        font.SetPointSize(font_size)
+        self.prompt_editor.SetFont(font)
+
+        # Refresh the editor to apply changes
+        self.refresh()
+
 
 
 class PromptEditorDropTarget(wx.TextDropTarget):
