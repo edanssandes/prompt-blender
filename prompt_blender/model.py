@@ -16,6 +16,8 @@ from pypdf import PdfReader
 import itertools
 import hashlib
 
+from prompt_blender.rag.embedding import Embedding
+
 
 FILE_FORMAT_VERSION = "1.0"
 
@@ -51,6 +53,8 @@ class Model:
             self.data["prompts"] = {}
         if "parameters" not in self.data:
             self.data["parameters"] = {}
+        if "rag" not in self.data:
+            self.data["rag"] = {}
 
         # Dictionary that stores the colors for each variable
         self.variable_colors = {}
@@ -63,6 +67,9 @@ class Model:
 
         # Flag that indicates if the model has been modified since the last save
         self._is_modified = True
+
+        # Vector database for embeddings
+        self._update_embeddings()
 
         # Set of functions to be called when the model changes state
         self.on_modified_callbacks = set()
@@ -192,7 +199,9 @@ class Model:
 
     def get_interpolated_prompt(self, prompt_name):
         _, text = self._interpolate(
-            self.data["prompts"][prompt_name], self.get_selected_values())
+            self.data["prompts"][prompt_name], 
+            self.get_selected_values()
+            )
         return text
 
     def get_prompt_names(self):
@@ -264,6 +273,25 @@ class Model:
             self.data["runs"] = value
             self.is_modified = True
 
+    def set_rag_configuration(self, doc_name, rag_config):
+        current_config = self.get_rag_configuration(doc_name)
+        if current_config != rag_config:
+            self.data["rag"][doc_name] = rag_config
+            self.is_modified = True
+            self._update_embeddings()
+
+    def remove_rag_configuration(self, doc_name):
+        if doc_name in self.data["rag"]:
+            self.data["rag"].pop(doc_name)
+            self.is_modified = True
+            self._update_embeddings()
+
+    def get_rag_configuration(self, doc_name):
+        return self.data["rag"].get(doc_name)
+    
+    def _update_embeddings(self):
+        self._embeddings = {k: Embedding(**v) for k,v in self.data["rag"].items()}
+
     @property
     def file_path(self):
         return self._file_path
@@ -302,6 +330,28 @@ class Model:
             values.update(param[self.selected_params[param_name]])
 
         return values
+    
+    def get_functions(self):
+        def emb_function(values, k, params, emb):
+            if params is None or len(params) == 0:
+                raise ValueError("Embedding function requires at least one parameter: the query text variable name.")
+            p = params[0]
+            if p in values:
+                query = values[p]
+            else:
+                raise ValueError(f"Variable '{p}' not found in values for embedding query.")
+            
+            ret = emb.query(query_text=query, doc=values[k])
+
+            return ret
+
+
+        # Embedding Query Functions
+        return {k: lambda values, params: emb_function(values, k, params, emb)  for k, emb in self._embeddings.items()}
+
+        #return {
+        #    'word': lambda params: '§'.join(params + ['/'])
+        #}
 
     def get_variable_colors(self, variable_name):
         return self.variable_colors.get(variable_name)
@@ -553,32 +603,74 @@ class Model:
         self.is_modified = True
 
     def get_hightlight_positions(self, prompt_name, interpolated):
-        if interpolated:
-            values = self.get_selected_values()
-        else:
-            values = None
+        values = self.get_selected_values()
 
         tag_positions, _ = self._interpolate(
-            self.data["prompts"][prompt_name], values)
+            self.data["prompts"][prompt_name], values, replace=interpolated)
         return tag_positions
 
-    def _interpolate(self, text, values):
+
+    def _extract_placeholders(self, text, values=None, functions=None):
+        placeholders = {}
+
+        for match in re.finditer(r'(?<!\{)\{([^{}]*)\}(?!\})', text):
+            placeholder = match.group(1)
+            if placeholder in placeholders:
+                continue
+
+            # If placeholder is in format <var>(.*)... let var_name be the left part and params be the right part
+            m = re.match(r'([^()]+)\((.*)\)', placeholder)
+            if m:
+                var_name, f_params = m.groups()
+                f_params = [f.strip() for f in f_params.split(',')]
+            else:
+                var_name = placeholder
+                f_params = None
+
+            start = match.start()
+            end = match.end()
+
+            replacement_value = None
+
+            if f_params is None and values is not None:
+                replacement_value = values.get(var_name)
+            elif functions is not None and var_name in functions:
+                replacement_value = str(functions[var_name](values, f_params))
+            else:
+                replacement_value = f"[!! Missing Variable: {var_name} !!]"
+
+            placeholders[placeholder] = {
+                'var_name': var_name,
+                'function_params': f_params,
+                'start': start,
+                'end': end,
+                'value': replacement_value
+            }
+
+        return placeholders
+
+
+    def _interpolate(self, text, values, replace=True):
         tag_positions = []
         new_text = text
         offset = 0
 
-        for match in re.finditer(r'(?<!\{)\{([^{}]*)\}(?!\})', text):
-            var_name = match.group(1)
-            start = match.start() + offset
-            end = match.end() + offset
-            if values:
-                value = str(values.get(
-                    var_name, f"[!! Missing Variable: {var_name} !!]"))
-                new_text = new_text[:start] + value + new_text[end:]
-                offset += len(value) - (end - start)
-                end = start + len(value)
+        functions = self.get_functions()
+
+        for placeholder_key, placeholder in self._extract_placeholders(text, values, functions).items():
+
+            var_name = placeholder['var_name']
+            start = placeholder['start'] + offset
+            end = placeholder['end'] + offset
+
+            if replace:
+                replacement_value = placeholder['value']
+
+                new_text = new_text[:start] + replacement_value + new_text[end:]
+                offset += len(replacement_value) - (end - start)
+                end = start + len(replacement_value)
                 print(
-                    f"Substituindo {var_name} por {value} na posição {start} até {end} (offset {offset})")
+                    f"Substituindo {var_name} por {replacement_value} na posição {start} até {end} (offset {offset})")
 
             # Salvando as posições para aplicar a coloração
             tag_positions.append((var_name, start, end))
@@ -620,16 +712,33 @@ class Model:
         else:
             keep_running = True
 
+
         for i, combination in enumerate(itertools.product(*parameters)):
-            yield ParameterCombination(combination)
+            prompt_arguments = self._flat_values(combination)
+            placeholders = self._extract_placeholders(combination[0]['prompt'], prompt_arguments, self.get_functions())
+            yield ParameterCombination(combination, placeholders=placeholders)
+
             if callback:
                 keep_running = callback(i+1, num_combinations)
                 if keep_running is False:
                     break
 
     def get_current_combination(self, prompt_name):
-        parameters = [{'_id': prompt_name, 'prompt': self.data["prompts"][prompt_name]}] + [self.get_selected_values()]
-        return ParameterCombination(parameters)
+        prompt = self.data["prompts"][prompt_name]
+        parameters = [{'_id': prompt_name, 'prompt': prompt}] + [self.get_selected_values()]
+
+        prompt_arguments = self._flat_values(parameters)
+        placeholders = self._extract_placeholders(prompt, prompt_arguments, self.get_functions())
+        return ParameterCombination(parameters, placeholders=placeholders)
+
+    def _flat_values(self, parameters):
+        prompt_arguments = {}
+        for argument in parameters:
+            values = {k:v for k,v in argument.items() if not k.startswith('_')}
+            prompt_arguments.update(values)
+        return prompt_arguments
+
+  
 
 
     def get_num_combinations(self):
@@ -696,7 +805,7 @@ class Model:
         return full_results
     
 class ParameterCombination:
-    def __init__(self, combination: list):
+    def __init__(self, combination: list, placeholders: dict) -> None:
         prompt_arguments = {}  # Arguments used in the prompt expansion
         prompt_arguments_masked = {}  # Arguments used in the prompt expansion, but masked when an _id is present
 
@@ -709,12 +818,12 @@ class ParameterCombination:
                 prompt_arguments_masked.update({k: (id if isinstance(v, str) else v)
                                                 for k,v in values.items()})
 
-
-
             prompt_arguments.update(values)
 
+        arguments = {k:v['value'] for k,v in placeholders.items()}
+
         try:
-            self._prompt_content = prompt_arguments['prompt'].format(**prompt_arguments)
+            self._prompt_content = prompt_arguments['prompt'].format(**arguments)
             self._missing_argument = None
         except KeyError as e:
             print(f'Error: Prompt file contains argument "{e}", but it was not found in the input arguments.')

@@ -10,7 +10,7 @@ import pandas as pd
 from prompt_blender.blend import blend_prompt
 
 from prompt_blender.llms import execute_llm
-from prompt_blender.gui.dialogs import ProgressDialog, RunConfigurationsDialog, InputListDialog
+from prompt_blender.gui.dialogs import ProgressDialog, RunConfigurationsDialog, InputListDialog, RagEmbeddingDialog
 from prompt_blender.preferences import Preferences
 
 from prompt_blender.analysis import analyse_results
@@ -97,6 +97,18 @@ class MainFrame(wx.Frame):
         # Insert
         self.image_list.Add(wx.ArtProvider.GetBitmap(wx.ART_PLUS, client, size))
         self.image_list.Add(wx.ArtProvider.GetBitmap(wx.ART_ADD_BOOKMARK, client, size))
+
+        # RAG indicator
+        #size = (32, 16)
+        rag_bitmap = wx.Bitmap(*size)
+        dc = wx.MemoryDC(rag_bitmap)
+        dc.SetBackground(wx.Brush(wx.WHITE))
+        dc.Clear()
+        dc.SetPen(wx.Pen(wx.BLACK, 1))
+        #dc.DrawRectangle(0, 0, *size)
+        dc.SetFont(wx.Font(5, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL))
+        dc.DrawText("RAG", 1, 5)
+        self.image_list.Add(rag_bitmap)
 
 
     def setup_menu(self):
@@ -329,6 +341,8 @@ class MainFrame(wx.Frame):
             menu.Append(6, "Truncate")
             menu.Append(7, "Remove Duplicates")
             menu.AppendSeparator()
+            menu.Append(10, "Activate RAG Embedding...")
+            menu.AppendSeparator()
             menu.Append(8, "Move Up")
             menu.Append(9, "Move Down")
 
@@ -354,6 +368,8 @@ class MainFrame(wx.Frame):
                     self.move_selection_up()
                 elif item == 9:
                     self.move_selection_down()
+                elif item == 10:
+                    self.add_rag_embedding()
 
             self.Bind(wx.EVT_MENU, on_menu_click)
 
@@ -377,6 +393,14 @@ class MainFrame(wx.Frame):
             menu.Append(3, "Add Directory")
             menu.Append(1, "Add Manual List")
 
+            # Advanced submenu with "Add RAG Embedding"
+            adv_menu = wx.Menu()
+            adv_menu.Append(4, "Add RAG Embedding")
+
+            menu.AppendSeparator()
+            menu.AppendSubMenu(adv_menu, "Advanced")
+
+
             def on_menu_click(event):
                 item = event.GetId()
                 try:
@@ -386,6 +410,8 @@ class MainFrame(wx.Frame):
                         self.add_table_from_file()
                     elif item == 3:
                         self.add_table_from_directory()
+                    elif item == 4:
+                        self.add_rag_embedding()
                 except ValueError as e:
                     wx.MessageBox(f"Error: {e}", "Error", wx.OK | wx.ICON_ERROR)
 
@@ -619,6 +645,21 @@ class MainFrame(wx.Frame):
                 extension = dialog.GetExtension()
                 self.data.add_table_from_string(values, extension, maximum_rows=self.preferences.max_rows)
                 self.populate_data()
+
+
+    def add_rag_embedding(self):
+        item = self.tree.GetSelection()
+        if item.IsOk():
+            _, param_key = self.tree.GetItemData(item)
+
+            # Show RAG Embedding configuration dialog
+            with RagEmbeddingDialog(self, "RAG Configuration") as dialog:
+                if dialog.ShowModal() == wx.ID_OK:
+                    #self.data.add_function()
+                    config = dialog.get_config()
+                    self.data.set_rag_configuration(param_key, config)
+                    self.populate_data()
+
 
     def apply_transform(self):
         item = self.tree.GetSelection()
@@ -1259,6 +1300,8 @@ class MainFrame(wx.Frame):
                             variable_names.add(key)
                         item = self.tree.AppendItem(group_node, text=f"{key}{tag}", data=(group_name, key))
                         self.tree.SetItemTextColour(item, data.add_variable_color(key))
+                        if self.data.get_rag_configuration(key) is not None:
+                            self.tree.SetItemImage(item, 3, wx.TreeItemIcon_Normal)
 
         self.tree.ExpandAll()  # Expandir todos os nós para visualização completa
 
