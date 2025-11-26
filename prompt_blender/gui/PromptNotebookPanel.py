@@ -3,6 +3,8 @@ import json
 
 
 class PromptPage(wx.Panel):
+    DEBOUNCE_INTERVAL = 250  # Waits this amount of milliseconds after the last text change before updating the prompt data.
+
     def __init__(self, parent, data, prompt_name, on_change=None):
         super(PromptPage, self).__init__(parent)
         self.SetBackgroundColour(wx.Colour(255, 1, 1))
@@ -41,7 +43,7 @@ class PromptPage(wx.Panel):
             if self.view_mode == 0:
                 # Start/restart debounce timer
                 self.debounce_timer.Stop()
-                self.debounce_timer.StartOnce(200)
+                self.debounce_timer.StartOnce(PromptPage.DEBOUNCE_INTERVAL)
 
         self.prompt_editor.Bind(wx.EVT_TEXT, on_prompt_change)
 
