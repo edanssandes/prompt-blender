@@ -610,8 +610,8 @@ class Model:
         return tag_positions
 
 
-    def _extract_placeholders(self, text, values=None, functions=None):
-        placeholders = {}
+    def _extract_placeholders(self, text, values=None, functions=None) -> list:
+        placeholders = []
 
         for match in re.finditer(r'(?<!\{)\{([^{}]*)\}(?!\})', text):
             placeholder = match.group(1)
@@ -639,13 +639,14 @@ class Model:
             else:
                 replacement_value = f"[!! Missing Variable: {var_name} !!]"
 
-            placeholders[placeholder] = {
+            placeholders.append({
+                'placeholder': placeholder,
                 'var_name': var_name,
                 'function_params': f_params,
                 'start': start,
                 'end': end,
                 'value': replacement_value
-            }
+            })
 
         return placeholders
 
@@ -657,7 +658,7 @@ class Model:
 
         functions = self.get_functions()
 
-        for placeholder_key, placeholder in self._extract_placeholders(text, values, functions).items():
+        for placeholder in self._extract_placeholders(text, values, functions):
 
             var_name = placeholder['var_name']
             start = placeholder['start'] + offset
@@ -805,7 +806,7 @@ class Model:
         return full_results
     
 class ParameterCombination:
-    def __init__(self, combination: list, placeholders: dict) -> None:
+    def __init__(self, combination: list, placeholders: list) -> None:
         prompt_arguments = {}  # Arguments used in the prompt expansion
         prompt_arguments_masked = {}  # Arguments used in the prompt expansion, but masked when an _id is present
 
@@ -820,7 +821,8 @@ class ParameterCombination:
 
             prompt_arguments.update(values)
 
-        arguments = {k:v['value'] for k,v in placeholders.items()}
+        # Create a dictionary with placeholder. Duplicate placeholders are overwritten, since they have the same value
+        arguments = {v['placeholder']: v['value'] for v in placeholders}
 
         try:
             self._prompt_content = prompt_arguments['prompt'].format(**arguments)
