@@ -170,3 +170,4 @@ screenshots/
 whitepaper/
 plugins/
 .vscode/
+chroma_db/
