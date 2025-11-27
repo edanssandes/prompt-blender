@@ -72,17 +72,17 @@ class PromptPage(wx.Panel):
                 self.prompt_editor.SetBackgroundColour(wx.Colour(240, 240, 240))
             else:
                 self.prompt_editor.SetBackgroundColour(wx.Colour(255, 255, 255))
-            self.prompt_editor.SetValue(text)
+            self.prompt_editor.ChangeValue(text)
         elif self.view_mode == 1:  # View prompt mode
             self.prompt_editor.SetBackgroundColour(wx.Colour(200, 200, 200))
-            self.prompt_editor.SetValue(text)
+            self.prompt_editor.ChangeValue(text)
         else:  # Debug cache mode
             if not text:
                 self.prompt_editor.SetBackgroundColour(wx.Colour(200, 200, 180))
-                self.prompt_editor.SetValue("")
+                self.prompt_editor.ChangeValue("")
             else:
                 self.prompt_editor.SetBackgroundColour(wx.Colour(180, 255, 180))
-                self.prompt_editor.SetValue(text)
+                self.prompt_editor.ChangeValue(text)
 
         # Apply syntax highlighting
         if text and self.view_mode != 2:
