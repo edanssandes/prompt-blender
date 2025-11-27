@@ -108,6 +108,7 @@ class MainFrame(wx.Frame):
         #dc.DrawRectangle(0, 0, *size)
         dc.SetFont(wx.Font(5, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL))
         dc.DrawText("RAG", 1, 5)
+        dc.SelectObject(wx.NullBitmap)
         self.image_list.Add(rag_bitmap)
 
 
