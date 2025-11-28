@@ -196,50 +196,38 @@ class PromptPage(wx.Panel):
 
 
 class PromptEditorDropTarget(wx.TextDropTarget):
-    def __init__(self, text_ctrl):
+    def __init__(self, prompt_editor):
         wx.TextDropTarget.__init__(self)
-        self.text_ctrl = text_ctrl
+        self.prompt_editor = prompt_editor
 
     def OnDropText(self, x, y, dropped_text):
-        # Only allow dropping if the text control is editable
-        if not self.text_ctrl.IsEditable():
+        """Handle drag and drop text insertion."""
+        if not self.prompt_editor.IsEditable():
             return False
 
-        # Get the insertion position from coordinates
         drop_pos = self._get_char_position(x, y)
+        self.prompt_editor.InsertText(drop_pos, dropped_text)
+        new_char_pos = drop_pos + len(dropped_text)
+        byte_pos = len(self.prompt_editor.GetText()[:new_char_pos].encode('utf-8'))
+        self.prompt_editor.SetCurrentPos(byte_pos)
+        self.prompt_editor.SetFocus()
 
-        # Store original text for cleanup
-        original_text = self.text_ctrl.GetText()
-
-        # Don't insert text directly here! wx.TextDropTarget has default behavior that
-        # automatically inserts the dragged text after OnDropText returns. To prevent
-        # duplicate text insertion, we use CallAfter to perform our insertion after
-        # the default behavior completes, then overwrites up any unwanted drag and drop 
-        # text that was inserted by default.
-        wx.CallAfter(self._insert_drop, original_text, drop_pos, dropped_text)
-
-        return True
-
+        # Unselected text to avoid confusion
+        self.prompt_editor.SetSelection(byte_pos, byte_pos)
+        
+        return False        
+    
     def _get_char_position(self, x, y):
         """Convert screen coordinates to character position in text"""
-        byte_pos = self.text_ctrl.PositionFromPoint(wx.Point(x, y))
+        byte_pos = self.prompt_editor.PositionFromPoint(wx.Point(x, y))
 
         if byte_pos == -1:
-            return self.text_ctrl.GetCurrentPos()
+            return self.prompt_editor.GetCurrentPos()
 
         # Convert byte position to character position
-        text = self.text_ctrl.GetText()
+        text = self.prompt_editor.GetText()
         text_bytes = text.encode('utf-8')
         char_pos = len(text_bytes[:byte_pos].decode('utf-8'))
 
         return char_pos
-
-    def _insert_drop(self, original_text, drop_pos, variable_text):
-        expected_text = original_text[:drop_pos] + variable_text + original_text[drop_pos:]
-
-        self.text_ctrl.SetText(expected_text)
-        new_char_pos = drop_pos + len(variable_text)
-        # Convert character position to byte position
-        byte_pos = len(expected_text[:new_char_pos].encode('utf-8'))
-        self.text_ctrl.SetCurrentPos(byte_pos)
-        self.text_ctrl.SetFocus()        
+       
