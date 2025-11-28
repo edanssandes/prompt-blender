@@ -24,24 +24,6 @@ FILE_FORMAT_VERSION = "1.0"
 SPLIT_ALL_CHUNKS = None
 
 class Model:
-    # Cores com contraste suficiente para serem usadas no highlight, sobre um fundo branco
-    default_colors = [
-        '#00AA00',  # Verde
-        '#0030FF',  # Azul
-        '#A0A000',  # Amarelo
-        '#FF00FF',  # Magenta
-        '#00FFFF',  # Ciano
-        '#FFA500',  # Laranja
-        '#800080',  # Roxo
-        '#008000',  # Verde escuro
-        '#404040',  # Cinza escuro
-        '#000080',  # Azul escuro
-        '#800000',  # Marrom
-        '#808000',  # Oliva
-        '#008080',  # Verde azulado
-        '#808080',  # Cinza
-    ]
-
     def __init__(self, data) -> None:
         # Dictionary that represents the project data
         self.data = Model.migrate(data)
@@ -360,10 +342,9 @@ class Model:
         if variable_name in self.variable_colors:
             return self.variable_colors[variable_name]
         else:
-            color = self.default_colors[len(
-                self.variable_colors) % len(self.default_colors)]
-            self.variable_colors[variable_name] = color
-            return color
+            color_id = len(self.variable_colors)
+            self.variable_colors[variable_name] = color_id
+            return color_id
 
     def get_parameter(self, param_name):
         if param_name not in self.data["parameters"]:
