@@ -1,4 +1,5 @@
 import wx
+import wx.stc
 import json
 
 
@@ -7,7 +8,7 @@ class PromptPage(wx.Panel):
 
     def __init__(self, parent, data, prompt_name, on_change=None):
         super(PromptPage, self).__init__(parent)
-        self.SetBackgroundColour(wx.Colour(255, 1, 1))
+        #self.SetBackgroundColour(wx.Colour(255, 1, 1))
 
         self.prompt_name = prompt_name
         self.data = data
@@ -15,24 +16,18 @@ class PromptPage(wx.Panel):
         self.missing_variables = False
         self.disabled = False
         self.on_change = on_change
+        self.highlighted_text = ""
 
         # Debounce timer for text changes
         self.debounce_timer = wx.Timer(self)
         self.Bind(wx.EVT_TIMER, self._on_debounce_timer, self.debounce_timer)
         sizer = wx.BoxSizer(wx.VERTICAL)
 
-        # Create a panel to hold the text editor and overlay label
-        editor_panel = wx.Panel(self)
-        editor_sizer = wx.BoxSizer(wx.VERTICAL)
-
         # TextCtrl para a edição do prompt
-        self.prompt_editor = wx.TextCtrl(editor_panel, style=wx.TE_MULTILINE | wx.TE_RICH2)
-        # Set Hint
-        self.prompt_editor.SetHint("Insert prompt text here...")
-
-        # Position the label in bottom-right corner
-        editor_sizer.Add(self.prompt_editor, 1, wx.EXPAND)
-        editor_panel.SetSizer(editor_sizer)
+        self.prompt_editor = wx.stc.StyledTextCtrl(self)
+        self.prompt_editor.SetLexer(wx.stc.STC_LEX_NULL)
+        self.style_map = {}
+        self.next_style = 1
 
         # Set up drag and drop for the prompt editor
         drop_target = PromptEditorDropTarget(self.prompt_editor)
@@ -45,10 +40,10 @@ class PromptPage(wx.Panel):
                 self.debounce_timer.Stop()
                 self.debounce_timer.StartOnce(PromptPage.DEBOUNCE_INTERVAL)
 
-        self.prompt_editor.Bind(wx.EVT_TEXT, on_prompt_change)
+        self.prompt_editor.Bind(wx.stc.EVT_STC_CHANGE, on_prompt_change)
 
         # Set up layout
-        sizer.Add(editor_panel, 1, wx.EXPAND)
+        sizer.Add(self.prompt_editor, 1, wx.EXPAND)
         self.SetSizer(sizer)
 
         self.refresh()
@@ -56,7 +51,7 @@ class PromptPage(wx.Panel):
     def _on_debounce_timer(self, event):
         """Called after some time of no text changes to update prompt and highlight. This reduce flickering. """
         if self.view_mode == 0:
-            self.data.set_prompt(self.prompt_name, self.prompt_editor.GetValue())
+            self.data.set_prompt(self.prompt_name, self.prompt_editor.GetText())
             self.highlight_prompt()
         if self.on_change:
             self.on_change()
@@ -69,20 +64,25 @@ class PromptPage(wx.Panel):
         # Set background color and text based on view mode
         if self.view_mode == 0:  # Edit mode
             if self.is_disabled():
-                self.prompt_editor.SetBackgroundColour(wx.Colour(240, 240, 240))
+                bg_color = wx.Colour(240, 240, 240)
             else:
-                self.prompt_editor.SetBackgroundColour(wx.Colour(255, 255, 255))
-            self.prompt_editor.ChangeValue(text)
+                bg_color = wx.Colour(255, 255, 255)
         elif self.view_mode == 1:  # View prompt mode
-            self.prompt_editor.SetBackgroundColour(wx.Colour(200, 200, 200))
-            self.prompt_editor.ChangeValue(text)
+            bg_color = wx.Colour(200, 200, 200)
         else:  # Debug cache mode
             if not text:
-                self.prompt_editor.SetBackgroundColour(wx.Colour(200, 200, 180))
-                self.prompt_editor.ChangeValue("")
+                bg_color = wx.Colour(200, 200, 180)
             else:
-                self.prompt_editor.SetBackgroundColour(wx.Colour(180, 255, 180))
-                self.prompt_editor.ChangeValue(text)
+                bg_color = wx.Colour(180, 255, 180)
+
+        self.prompt_editor.StyleResetDefault()
+        self.prompt_editor.SetBackgroundColour(bg_color)
+        for margin in range(5):
+            self.prompt_editor.SetMarginBackground(margin, bg_color)
+        self.prompt_editor.StyleSetBackground(0, bg_color)
+        self.prompt_editor.StyleSetForeground(0, wx.BLACK)
+
+        self.prompt_editor.SetText(text)
 
         # Apply syntax highlighting
         if text and self.view_mode != 2:
@@ -93,25 +93,56 @@ class PromptPage(wx.Panel):
         self.prompt_editor.Thaw()
 
     def highlight_prompt(self):
+
+        text = self.prompt_editor.GetText()
+        if text == self.highlighted_text:
+            return  # No changes, skip highlighting
+        
+        self.highlighted_text = text
+
         highlight_positions = self.data.get_hightlight_positions(prompt_name=self.prompt_name, interpolated=(self.view_mode==1))
         self.missing_variables = False
 
         # Background color for the prompt editor
         bg_color = self.prompt_editor.GetBackgroundColour()
 
-        # Remove all foreground and background colors
-        self.prompt_editor.SetStyle(0, self.prompt_editor.GetLastPosition(), wx.TextAttr(wx.BLACK, bg_color))
+        # Reset all styling to default
+        self.prompt_editor.StartStyling(0)
+        self.prompt_editor.SetStyling(self.prompt_editor.GetTextLength(), 0)
 
-
+        # Convert text to bytes for byte positions
+        text_bytes = text.encode('utf-8')
 
         # Aplicar coloração ao texto
         for var_name, start, end in highlight_positions:
+            # Convert character positions to byte positions
+            byte_start = len(text[:start].encode('utf-8'))
+            byte_end = len(text[:end].encode('utf-8'))
+            
             color = self.data.get_variable_colors(var_name)
             if color is not None:
-                self.prompt_editor.SetStyle(start, end, wx.TextAttr(color))
+                if color not in self.style_map:
+                    style_num = self.next_style
+                    self.next_style += 1
+                    self.style_map[color] = style_num
+                    self.prompt_editor.StyleSetForeground(style_num, color)
+                    self.prompt_editor.StyleSetBackground(style_num, bg_color)
+                else:
+                    style_num = self.style_map[color]
+                self.prompt_editor.StartStyling(byte_start)
+                self.prompt_editor.SetStyling(byte_end - byte_start, style_num)
             else:
                 self.missing_variables = True
-                self.prompt_editor.SetStyle(start, end, wx.TextAttr(wx.YELLOW, wx.RED))
+                if 'missing' not in self.style_map:
+                    style_num = self.next_style
+                    self.next_style += 1
+                    self.style_map['missing'] = style_num
+                    self.prompt_editor.StyleSetForeground(style_num, wx.YELLOW)
+                    self.prompt_editor.StyleSetBackground(style_num, wx.RED)
+                else:
+                    style_num = self.style_map['missing']
+                self.prompt_editor.StartStyling(byte_start)
+                self.prompt_editor.SetStyling(byte_end - byte_start, style_num)
 
     def refresh(self):
         #Lock the prompt editor if the view checkbox is checked
@@ -151,9 +182,7 @@ class PromptPage(wx.Panel):
         base_font_size = 10  # Default font size
         font_size = int(base_font_size * zoom_percentage / 100.0)
         
-        font = self.prompt_editor.GetFont()
-        font.SetPointSize(font_size)
-        self.prompt_editor.SetFont(font)
+        self.prompt_editor.StyleSetSize(0, font_size)
 
         # Refresh the editor to apply changes
         self.refresh()
@@ -174,7 +203,7 @@ class PromptEditorDropTarget(wx.TextDropTarget):
         drop_pos = self._get_char_position(x, y)
 
         # Store original text for cleanup
-        original_text = self.text_ctrl.GetValue()
+        original_text = self.text_ctrl.GetText()
 
         # Don't insert text directly here! wx.TextDropTarget has default behavior that
         # automatically inserts the dragged text after OnDropText returns. To prevent
@@ -187,23 +216,24 @@ class PromptEditorDropTarget(wx.TextDropTarget):
 
     def _get_char_position(self, x, y):
         """Convert screen coordinates to character position in text"""
-        pos = self.text_ctrl.HitTest(wx.Point(x, y))
+        byte_pos = self.text_ctrl.PositionFromPoint(wx.Point(x, y))
 
-        if pos[0] == wx.TE_HT_UNKNOWN:
-            return self.text_ctrl.GetInsertionPoint()
+        if byte_pos == -1:
+            return self.text_ctrl.GetCurrentPos()
 
-        # Convert line/column to character position
-        line_num, col_num = pos[2], pos[1]
-        lines = self.text_ctrl.GetValue().split('\n')
-
-        char_pos = sum(len(lines[i]) + 1 for i in range(min(line_num, len(lines))))
-        char_pos += min(col_num, len(lines[line_num]) if line_num < len(lines) else 0)
+        # Convert byte position to character position
+        text = self.text_ctrl.GetText()
+        text_bytes = text.encode('utf-8')
+        char_pos = len(text_bytes[:byte_pos].decode('utf-8'))
 
         return char_pos
 
     def _insert_drop(self, original_text, drop_pos, variable_text):
         expected_text = original_text[:drop_pos] + variable_text + original_text[drop_pos:]
 
-        self.text_ctrl.SetValue(expected_text)
-        self.text_ctrl.SetInsertionPoint(drop_pos + len(variable_text))
+        self.text_ctrl.SetText(expected_text)
+        new_char_pos = drop_pos + len(variable_text)
+        # Convert character position to byte position
+        byte_pos = len(expected_text[:new_char_pos].encode('utf-8'))
+        self.text_ctrl.SetCurrentPos(byte_pos)
         self.text_ctrl.SetFocus()        
