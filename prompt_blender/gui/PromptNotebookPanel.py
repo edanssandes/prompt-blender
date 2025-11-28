@@ -28,7 +28,6 @@ class PromptPage(wx.Panel):
         self.prompt_editor = wx.stc.StyledTextCtrl(self)
         self.prompt_editor.SetMarginType(1, wx.stc.STC_MARGIN_NUMBER)
         self.prompt_editor.SetMarginWidth(1, 36)
-        self.prompt_editor.SetLexer(wx.stc.STC_LEX_NULL)
         self.setup_styles()
         
         # Set up drag and drop for the prompt editor
@@ -70,6 +69,12 @@ class PromptPage(wx.Panel):
 
         for color_id, color in enumerate(placeholder_colors):
             self.prompt_editor.StyleSetForeground(color_id+1, color)        
+
+        if self.view_mode == 2:
+            self.prompt_editor.SetLexer(wx.stc.STC_LEX_JSON)
+        else:
+            self.prompt_editor.SetLexer(wx.stc.STC_LEX_NULL)
+
 
     def SetValue(self, text):
         self.prompt_editor.Freeze()
@@ -117,7 +122,6 @@ class PromptPage(wx.Panel):
 
         # Reset all styling to default
         self.prompt_editor.StartStyling(0)
-        #self.prompt_editor.SetStyling(self.prompt_editor.GetTextLength(), 0)
 
         # Convert text to bytes for byte positions
         text_bytes = text.encode('utf-8')
