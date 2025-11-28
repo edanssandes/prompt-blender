@@ -1,6 +1,7 @@
 import wx
 import wx.stc
 import json
+from prompt_blender.gui import placeholder_colors
 
 
 class PromptPage(wx.Panel):
@@ -25,10 +26,11 @@ class PromptPage(wx.Panel):
 
         # TextCtrl para a edição do prompt
         self.prompt_editor = wx.stc.StyledTextCtrl(self)
+        self.prompt_editor.SetMarginType(1, wx.stc.STC_MARGIN_NUMBER)
+        self.prompt_editor.SetMarginWidth(1, 36)
         self.prompt_editor.SetLexer(wx.stc.STC_LEX_NULL)
-        self.style_map = {}
-        self.next_style = 1
-
+        self.setup_styles()
+        
         # Set up drag and drop for the prompt editor
         drop_target = PromptEditorDropTarget(self.prompt_editor)
         self.prompt_editor.SetDropTarget(drop_target)
@@ -56,7 +58,18 @@ class PromptPage(wx.Panel):
         if self.on_change:
             self.on_change()
 
+    def setup_styles(self, default_bg_color=wx.Colour(255, 255, 255), default_fg_color=wx.Colour(0, 255, 0)):
+        """Set up styles for the prompt editor based on current variable colors."""
 
+        self.prompt_editor.StyleSetBackground(wx.stc.STC_STYLE_DEFAULT, default_bg_color)
+        self.prompt_editor.StyleSetForeground(wx.stc.STC_STYLE_DEFAULT, default_fg_color)
+        self.prompt_editor.StyleClearAll()
+
+        self.prompt_editor.StyleSetBackground(wx.stc.STC_STYLE_LINENUMBER, wx.Colour(230, 230, 230))
+        self.prompt_editor.StyleSetForeground(wx.stc.STC_STYLE_LINENUMBER, wx.Colour(150, 150, 150))
+
+        for color_id, color in enumerate(placeholder_colors):
+            self.prompt_editor.StyleSetForeground(color_id+1, color)        
 
     def SetValue(self, text):
         self.prompt_editor.Freeze()
@@ -75,25 +88,21 @@ class PromptPage(wx.Panel):
             else:
                 bg_color = wx.Colour(180, 255, 180)
 
-        self.prompt_editor.StyleResetDefault()
-        self.prompt_editor.SetBackgroundColour(bg_color)
-        for margin in range(5):
-            self.prompt_editor.SetMarginBackground(margin, bg_color)
-        self.prompt_editor.StyleSetBackground(0, bg_color)
-        self.prompt_editor.StyleSetForeground(0, wx.BLACK)
+        #self.prompt_editor.StyleResetDefault()
 
-        self.prompt_editor.SetText(text)
+        self.setup_styles(default_bg_color=bg_color, default_fg_color=wx.BLACK)
+
+        self.prompt_editor.SetEditable(True)  # Make editable to set text
+        self.prompt_editor.SetValue(text or "")
+        self.prompt_editor.SetEditable(self.view_mode == 0)
 
         # Apply syntax highlighting
         if text and self.view_mode != 2:
             self.highlight_prompt()
 
-        self.prompt_editor.SetEditable(self.view_mode == 0)
-
         self.prompt_editor.Thaw()
 
     def highlight_prompt(self):
-
         text = self.prompt_editor.GetText()
         if text == self.highlighted_text:
             return  # No changes, skip highlighting
@@ -104,11 +113,11 @@ class PromptPage(wx.Panel):
         self.missing_variables = False
 
         # Background color for the prompt editor
-        bg_color = self.prompt_editor.GetBackgroundColour()
+        bg_color = self.prompt_editor.StyleGetBackground(wx.stc.STC_STYLE_DEFAULT)
 
         # Reset all styling to default
         self.prompt_editor.StartStyling(0)
-        self.prompt_editor.SetStyling(self.prompt_editor.GetTextLength(), 0)
+        #self.prompt_editor.SetStyling(self.prompt_editor.GetTextLength(), 0)
 
         # Convert text to bytes for byte positions
         text_bytes = text.encode('utf-8')
@@ -119,18 +128,10 @@ class PromptPage(wx.Panel):
             byte_start = len(text[:start].encode('utf-8'))
             byte_end = len(text[:end].encode('utf-8'))
             
-            color = self.data.get_variable_colors(var_name)
-            if color is not None:
-                if color not in self.style_map:
-                    style_num = self.next_style
-                    self.next_style += 1
-                    self.style_map[color] = style_num
-                    self.prompt_editor.StyleSetForeground(style_num, color)
-                    self.prompt_editor.StyleSetBackground(style_num, bg_color)
-                else:
-                    style_num = self.style_map[color]
+            color_id = self.data.get_variable_colors(var_name)
+            if color_id is not None:
                 self.prompt_editor.StartStyling(byte_start)
-                self.prompt_editor.SetStyling(byte_end - byte_start, style_num)
+                self.prompt_editor.SetStyling(byte_end - byte_start, color_id+1)
             else:
                 self.missing_variables = True
                 if 'missing' not in self.style_map:
@@ -161,6 +162,7 @@ class PromptPage(wx.Panel):
         else:
             text = "?"  # Should never happen
 
+        self.highlighted_text = ""  # Force re-highlighting
         self.SetValue(text)
 
     @property
