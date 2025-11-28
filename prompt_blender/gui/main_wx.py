@@ -20,6 +20,7 @@ from datetime import datetime
 import shutil
 
 from prompt_blender import result_file
+from prompt_blender.gui import placeholder_colors
 
 
 PROJECT_FILE_EXTENSION = "pbp"
@@ -1315,7 +1316,9 @@ class MainFrame(wx.Frame):
                             tag = ""
                             variable_names.add(key)
                         item = self.tree.AppendItem(group_node, text=f"{key}{tag}", data=(group_name, key))
-                        self.tree.SetItemTextColour(item, data.add_variable_color(key))
+                        color_id = data.add_variable_color(key)
+                        color = placeholder_colors[color_id % len(placeholder_colors)]
+                        self.tree.SetItemTextColour(item, color)
                         if self.data.get_rag_configuration(key) is not None:
                             self.tree.SetItemImage(item, 3, wx.TreeItemIcon_Normal)
 
