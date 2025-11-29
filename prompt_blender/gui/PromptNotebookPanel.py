@@ -9,7 +9,6 @@ class PromptPage(wx.Panel):
 
     def __init__(self, parent, data, prompt_name, on_change=None):
         super(PromptPage, self).__init__(parent)
-        #self.SetBackgroundColour(wx.Colour(255, 1, 1))
 
         self.prompt_name = prompt_name
         self.data = data
@@ -18,6 +17,7 @@ class PromptPage(wx.Panel):
         self.disabled = False
         self.on_change = on_change
         self.highlighted_text = ""
+        self.style_map = {}
 
         # Debounce timer for text changes
         self.debounce_timer = wx.Timer(self)
@@ -28,6 +28,9 @@ class PromptPage(wx.Panel):
         self.prompt_editor = wx.stc.StyledTextCtrl(self)
         self.prompt_editor.SetMarginType(1, wx.stc.STC_MARGIN_NUMBER)
         self.prompt_editor.SetMarginWidth(1, 36)
+        # Wrap long lines
+        self.prompt_editor.SetWrapMode(wx.stc.STC_WRAP_WORD)
+
         self.setup_styles()
         
         # Set up drag and drop for the prompt editor
@@ -67,8 +70,19 @@ class PromptPage(wx.Panel):
         self.prompt_editor.StyleSetBackground(wx.stc.STC_STYLE_LINENUMBER, wx.Colour(230, 230, 230))
         self.prompt_editor.StyleSetForeground(wx.stc.STC_STYLE_LINENUMBER, wx.Colour(150, 150, 150))
 
+        self.style_map = {}
+
+        style_id = 1
+        self.style_map['missing'] = style_id
+        self.prompt_editor.StyleSetForeground(style_id, wx.YELLOW)
+        self.prompt_editor.StyleSetBackground(style_id, wx.RED)
+
+
         for color_id, color in enumerate(placeholder_colors):
-            self.prompt_editor.StyleSetForeground(color_id+1, color)        
+            style_id += 1
+            self.prompt_editor.StyleSetForeground(style_id, color)
+            self.style_map[color_id] = style_id
+
 
         if self.view_mode == 2:
             self.prompt_editor.SetLexer(wx.stc.STC_LEX_JSON)
@@ -135,19 +149,11 @@ class PromptPage(wx.Panel):
             color_id = self.data.get_variable_colors(var_name)
             if color_id is not None:
                 self.prompt_editor.StartStyling(byte_start)
-                self.prompt_editor.SetStyling(byte_end - byte_start, color_id+1)
+                self.prompt_editor.SetStyling(byte_end - byte_start, self.style_map[color_id % len(placeholder_colors)])
             else:
                 self.missing_variables = True
-                if 'missing' not in self.style_map:
-                    style_num = self.next_style
-                    self.next_style += 1
-                    self.style_map['missing'] = style_num
-                    self.prompt_editor.StyleSetForeground(style_num, wx.YELLOW)
-                    self.prompt_editor.StyleSetBackground(style_num, wx.RED)
-                else:
-                    style_num = self.style_map['missing']
                 self.prompt_editor.StartStyling(byte_start)
-                self.prompt_editor.SetStyling(byte_end - byte_start, style_num)
+                self.prompt_editor.SetStyling(byte_end - byte_start, self.style_map['missing'])
 
     def refresh(self):
         #Lock the prompt editor if the view checkbox is checked
