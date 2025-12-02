@@ -194,7 +194,7 @@ class PromptPage(wx.Panel):
         base_font_size = 10  # Default font size
         font_size = int(base_font_size * zoom_percentage / 100.0)
         
-        self.prompt_editor.StyleSetSize(0, font_size)
+        self.prompt_editor.SetZoom((zoom_percentage - 100)//15)
 
         # Refresh the editor to apply changes
         self.refresh()
