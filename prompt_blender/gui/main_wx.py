@@ -133,7 +133,7 @@ class MainFrame(wx.Frame):
         self.main_menu.set_callback('expire_cache_all', lambda: self.expire_cache('all'))
         self.main_menu.set_callback('expire_cache_error_items', lambda: self.expire_cache('error_items'))
         self.main_menu.set_callback('expire_cache_current_item', lambda: self.expire_cache('current_item'))
-        self.main_menu.set_callback('import_cache', self.import_cache)
+        self.main_menu.set_callback('import_cache', lambda: self.import_cache(read_only=False))
         self.main_menu.set_callback('show_about', None)  # Usa implementação padrão
         self.main_menu.set_callback('open_recent_file', self._on_open_recent_file)
         self.main_menu.set_callback('zoom', self.set_zoom)

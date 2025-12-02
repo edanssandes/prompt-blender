@@ -138,11 +138,12 @@ class MainMenu:
         
         # Submenu Expire Cache
         expire_cache_menu = wx.Menu()
-        expire_cache_menu.Append(3005, "All Items")
-        expire_cache_menu.Append(3004, "Current Item")
-        expire_cache_menu.Append(3006, "Error Items Only")
-        #expire_cache_menu.Append(3007, "Import Cache")
-        run_menu.AppendSubMenu(expire_cache_menu, "Expire Cache")
+        expire_cache_menu.Append(3005, "Expire All Items")
+        expire_cache_menu.Append(3004, "Expire Current Item")
+        expire_cache_menu.Append(3006, "Expire Error Items Only")
+        expire_cache_menu.AppendSeparator()
+        expire_cache_menu.Append(3007, "Import Cache")
+        run_menu.AppendSubMenu(expire_cache_menu, "Cache")
         
         # Bind eventos
         run_menu.Bind(wx.EVT_MENU, self._on_run_menu)

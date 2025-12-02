@@ -106,6 +106,6 @@ class Embedding:
                 return "(empty)"
             return "----\n".join(documents)
         elif self.return_format == "json":
-            return json.dumps({"results": documents}, indent=2)
+            return json.dumps(documents, indent=2)
         else:
             raise ValueError(f"Unknown format: {self.return_format}")
