@@ -1,9 +1,11 @@
 import wx
+import wx.lib.agw.pygauge
 import threading
+import time
 
 class ProgressDialog(wx.Dialog):
     def __init__(self, parent, title):
-        super(ProgressDialog, self).__init__(parent, title=title, size=(300, 200))
+        super(ProgressDialog, self).__init__(parent, title=title, size=(300, 170))
 
         self.init_ui()
         self.Centre()
@@ -26,8 +28,10 @@ class ProgressDialog(wx.Dialog):
         
     def reset_progress(self):
         self.gauge.SetValue(0)
-        self.gauge.SetRange(0)
-        self.progress_text.SetLabel("0/0")
+        self.gauge.SetRange(100)
+        self.gauge.SetDrawValue(draw=True, drawPercent=False, formatString="")
+        self.gauge.Refresh()
+
         self.description_text.SetLabel("Initializing task...")
 
     def init_ui(self):
@@ -35,16 +39,19 @@ class ProgressDialog(wx.Dialog):
         vbox = wx.BoxSizer(wx.VERTICAL)
 
         # Barra de progresso
-        self.gauge = wx.Gauge(panel, range=0, size=(250, 25))
-        vbox.Add(self.gauge, flag=wx.ALL | wx.EXPAND, border=10)
-
-        # Informativo numérico x/y
-        self.progress_text = wx.StaticText(panel, label=f"0/0")
-        vbox.Add(self.progress_text, flag=wx.ALL | wx.CENTER, border=5)
+        #self.gauge = wx.lib.agw.pygauge.PyGauge(panel, -1, size=(250, 25), style=wx.GA_HORIZONTAL)
+        self.gauge = wx.lib.agw.pygauge.PyGauge(panel, -1, size=(9999, 25), style=wx.GA_HORIZONTAL)
+        self.gauge.SetBackgroundColour(wx.WHITE)
+        self.gauge.SetBarColour(wx.Colour(128, 164, 255))
+        self.gauge.SetBorderColor(wx.Colour(128, 128, 128))
+        self.gauge.SetBorderPadding(1)
+        vbox.Add(self.gauge, 0, wx.ALIGN_CENTER | wx.ALL, border=10)
 
         # Descrição do progresso da tarefa
         self.description_text = wx.StaticText(panel, label="")
-        vbox.Add(self.description_text, flag=wx.ALL | wx.LEFT, border=5)
+        vbox.Add(self.description_text, flag=wx.ALL | wx.LEFT, border=10)
+
+
 
         # Botão de cancelar/concluir
         self.button = wx.Button(panel)
@@ -65,9 +72,11 @@ class ProgressDialog(wx.Dialog):
     
     def _update_progress(self, current_value, max_value, description):
         """Atualiza a barra de progresso e os textos informativos."""
-        self.gauge.SetValue(current_value)
         self.gauge.SetRange(max_value)
-        self.progress_text.SetLabel(f"{current_value}/{max_value}")
+        self.gauge.SetValue(current_value)
+        self.gauge.SetDrawValue(draw=True, drawPercent=False, formatString=f"{current_value}/{max_value}")
+        self.gauge.Refresh()
+
         self.description_text.SetLabel(description)
 
         self._update_button(current_value, max_value)
@@ -110,7 +119,16 @@ class ProgressDialog(wx.Dialog):
         self.Hide()
 
 if __name__ == '__main__':
+    def dummy_task(dialog):
+        """Simula uma tarefa com progresso de 1 a 100."""
+        for i in range(1, 100):
+            if not dialog.update_progress(i, 100, f"Processando itens..."):
+                break  # Cancelado
+            time.sleep(0.05)
+
+        dialog.update_progress(100, 100, f"Concluído com sucesso")
+    
     app = wx.App(False)
     dialog = ProgressDialog(None, 'Progresso da Tarefa')
-    dialog.Show()
+    dialog.run_task(lambda: dummy_task(dialog), auto_close=True)
     app.MainLoop()
