@@ -1002,6 +1002,7 @@ class MainFrame(wx.Frame):
         self.interrupted = False
 
         #self.progress_dialog.run_task(long_running_task)
+        self.execute_dialog.CentreOnParent()
         ret = self.execute_dialog.ShowModal()
 
         if ret == wx.ID_OK:
