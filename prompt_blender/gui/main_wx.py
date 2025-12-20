@@ -1145,21 +1145,21 @@ class MainFrame(wx.Frame):
 
         wx.CallAfter(self.update_project_state)
 
-        #output_dir = "output_teste"
-        output_dir = self.preferences.cache_dir
-        blend_prompt(self.data, output_dir)
-        
-        # Execute the LLM
-        #module_args = self.execute_dialog.get_module_args()
+        try:
+            #output_dir = "output_teste"
+            output_dir = self.preferences.cache_dir
+            blend_prompt(self.data, output_dir)
+            
+            # Execute the LLM
+            #module_args = self.execute_dialog.get_module_args()
 
-        # Each run configuration is a module with its own arguments
-        run_args = self.data.get_run_args(self.llm_modules)
+            # Each run configuration is a module with its own arguments
+            run_args = self.data.get_run_args(self.llm_modules)
 
-        max_timestamp = ''
+            max_timestamp = ''
 
-        for name, run in run_args.items():
+            for name, run in run_args.items():
 
-            try:
                 max_cost = self.preferences.max_cost
                 timestamp = execute_llm.execute_llm(run, self.data, output_dir, progress_callback=self.progress_dialog.update_progress, cache_timeout=cache_timeout, max_cost=max_cost, gui=True)
                 max_timestamp = max(max_timestamp, timestamp)
@@ -1168,14 +1168,14 @@ class MainFrame(wx.Frame):
                     self.interrupted = True
                     break
 
-            except Exception as e:
-                self.execute_error = str(e)
-                wx.CallAfter(self.execution_done)
-                
-                # print stack trace
-                import traceback
-                traceback.print_exc()
-                return
+        except Exception as e:
+            self.execute_error = str(e)
+            wx.CallAfter(self.execution_done)
+            
+            # print stack trace
+            import traceback
+            traceback.print_exc()
+            return
 
         if not self.interrupted:
             self.export_current_results(max_timestamp)
