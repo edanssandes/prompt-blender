@@ -7,7 +7,7 @@
         ]
     },
     "prompts": {
-        "Lookup Prompt": "Look up on the web for the weather forecast in {city}."
+        "Lookup Prompt": "Look up on the web for the weather forecast in {{city}}."
     },
     "runs": {
         "GPT - web search": {

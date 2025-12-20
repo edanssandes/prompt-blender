@@ -19,7 +19,7 @@ import hashlib
 from prompt_blender.rag.embedding import Embedding
 
 
-FILE_FORMAT_VERSION = "1.0"
+FILE_FORMAT_VERSION = "2.0"
 
 SPLIT_ALL_CHUNKS = None
 
@@ -73,6 +73,20 @@ class Model:
             if isinstance(data["prompts"], list):
                 data["prompts"] = {f"Prompt {i}": prompt for i,
                                    prompt in enumerate(data["prompts"])}
+                
+        if version < [2, 0]:
+            # {placeholder} -> {{placeholder}} and {{json}} -> {json}
+            def migrate_placeholders(text):
+                # First replace all {{ and }} with a temporary token
+                temp_token_start = "<<§TEMP_START§>>"
+                temp_token_end = "<<§TEMP_END§>>"
+                text = text.replace("{{", temp_token_start).replace("}}", temp_token_end)
+                text = re.sub(r'\{([^{}]+)\}', r'{{\1}}', text)
+                text = text.replace(temp_token_start, "{").replace(temp_token_end, "}")
+                return text
+                
+            for prompt_name, prompt_text in data["prompts"].items():
+                data["prompts"][prompt_name] = migrate_placeholders(prompt_text)
 
         data["metadata"]["file_format_version"] = FILE_FORMAT_VERSION
         return data
@@ -594,7 +608,7 @@ class Model:
     def _extract_placeholders(self, text, values=None, functions=None) -> list:
         placeholders = []
 
-        for match in re.finditer(r'(?<!\{)\{([^{}]*)\}(?!\})', text):
+        for match in re.finditer(r'\{\{([^{}]*)\}\}', text):
             placeholder = match.group(1)
             if placeholder in placeholders:
                 continue
@@ -803,7 +817,7 @@ class ParameterCombination:
             prompt_arguments.update(values)
 
         # Create a dictionary with placeholder. Duplicate placeholders are overwritten, since they have the same value
-        arguments = {v['placeholder']: v['value'] for v in placeholders}
+        arguments = {"{{{}}}".format(v['placeholder']): v['value'] for v in placeholders}
 
         try:
             self._prompt_content = prompt_arguments['prompt'].format(**arguments)

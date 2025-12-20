@@ -12,7 +12,7 @@
         ]
     },
     "prompts": {
-        "Temperature Conversion": "Convert {temp_value} degrees {from_unit} to {to_unit}.\n\nUse the appropriate conversion formula:\n- Celsius to Fahrenheit: F = (9/5) * C + 32\n- Fahrenheit to Celsius: C = (5/9) * (F - 32)\n\nProvide the result in the following JSON format:\n{{\n\t\"converted_value\": <calculated converted value>,\n\t\"converted_unit\": \"{to_unit}\"\n}}."
+        "Temperature Conversion": "Convert {{temp_value}} degrees {{from_unit}} to {{to_unit}}.\n\nUse the appropriate conversion formula:\n- Celsius to Fahrenheit: F = (9/5) * C + 32\n- Fahrenheit to Celsius: C = (5/9) * (F - 32)\n\nProvide the result in the following JSON format:\n{\n\t\"converted_value\": <calculated converted value>,\n\t\"converted_unit\": \"{{to_unit}}\"\n}."
     },
     "runs": {
         
