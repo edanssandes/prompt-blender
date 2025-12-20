@@ -72,7 +72,7 @@ class ProgressDialog(wx.Dialog):
     
     def _update_progress(self, current_value, max_value, description):
         """Atualiza a barra de progresso e os textos informativos."""
-        self.gauge.SetRange(max_value)
+        self.gauge.SetRange(max(max_value, 1))
         self.gauge.SetValue(current_value)
         self.gauge.SetDrawValue(draw=True, drawPercent=False, formatString=f"{current_value}/{max_value}")
         self.gauge.Refresh()
