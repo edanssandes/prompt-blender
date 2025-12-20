@@ -145,7 +145,6 @@ class PreferencesDialog(wx.Dialog):
         self.max_rows.SetValue(preferences.max_rows)
 
     def refresh_buttons(self):
-        print("Refresh buttons")
         self.apply_button.Enable(self._current_preferences != self._original_preferences)
 
     def get_preferences(self):

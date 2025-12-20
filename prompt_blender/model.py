@@ -685,8 +685,6 @@ class Model:
                 new_text = new_text[:start] + replacement_value + new_text[end:]
                 offset += len(replacement_value) - (end - start)
                 end = start + len(replacement_value)
-                print(
-                    f"Substituindo {var_name} por {replacement_value} na posição {start} até {end} (offset {offset})")
 
             # Salvando as posições para aplicar a coloração
             tag_positions.append((var_name, start, end))
