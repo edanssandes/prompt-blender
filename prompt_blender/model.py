@@ -323,6 +323,8 @@ class Model:
         # Obtenha o values de todos os parâmetros selecionados
         values = {}
         for param_name, param in self.parameters.items():
+            if not param:
+                continue
             values.update(param[self.selected_params[param_name]])
 
         return values
@@ -360,6 +362,19 @@ class Model:
             self.variable_colors[variable_name] = color_id
             return color_id
 
+    def refresh_variable_colors(self):
+        # Verify every param/key. If key is not present, remove from variable colors
+        deleted_variable_colors = set(self.variable_colors.keys())
+        for param_name in self.data["parameters"]:
+            if not self.data["parameters"][param_name]:
+                continue
+            for key in self.data["parameters"][param_name][0].keys():
+                self.add_variable_color(key)
+                deleted_variable_colors.discard(key)
+
+        for variable_name in deleted_variable_colors:
+            self.variable_colors.pop(variable_name)
+
     def get_parameter(self, param_name):
         if param_name not in self.data["parameters"]:
             return None
@@ -387,6 +402,7 @@ class Model:
     def remove_param(self, param_name):
         self.data["parameters"].pop(param_name)
         self.is_modified = True
+        self.refresh_variable_colors()
 
     def remove_param_key(self, param_name, key):
         param = self.get_parameter(param_name)
@@ -398,6 +414,7 @@ class Model:
             self.data["parameters"][param_name] = [row for row in param if row]
 
             self.is_modified = True
+        self.refresh_variable_colors()
 
     def move_param(self, param_name, direction: int):
         param_index = list(self.data["parameters"].keys()).index(param_name)
@@ -605,7 +622,7 @@ class Model:
         return tag_positions
 
 
-    def _extract_placeholders(self, text, values=None, functions=None) -> list:
+    def _extract_placeholders(self, text, values=None, functions=None, raise_on_missing=False) -> list:
         placeholders = []
 
         for match in re.finditer(r'\{\{([^{}]*)\}\}', text):
@@ -627,12 +644,15 @@ class Model:
 
             replacement_value = None
 
-            if f_params is None and values is not None:
+            if f_params is None and values is not None and var_name in values:
                 replacement_value = values.get(var_name)
             elif functions is not None and var_name in functions:
                 replacement_value = str(functions[var_name](values, f_params))
             else:
-                replacement_value = f"[!! Missing Variable: {var_name} !!]"
+                if raise_on_missing:
+                    raise ValueError(f'Error: Prompt contains argument "{var_name}", but it was not found in the input arguments.')
+                else:
+                    replacement_value = f"[!! Missing Variable: {var_name} !!]"
 
             placeholders.append({
                 'placeholder': placeholder,
@@ -646,14 +666,14 @@ class Model:
         return placeholders
 
 
-    def _interpolate(self, text, values, replace=True):
+    def _interpolate(self, text, values, replace=True, raise_on_missing=False):
         tag_positions = []
         new_text = text
         offset = 0
 
         functions = self.get_functions()
 
-        for placeholder in self._extract_placeholders(text, values, functions):
+        for placeholder in self._extract_placeholders(text, values, functions, raise_on_missing=raise_on_missing):
 
             var_name = placeholder['var_name']
             start = placeholder['start'] + offset
@@ -711,8 +731,9 @@ class Model:
 
         for i, combination in enumerate(itertools.product(*parameters)):
             prompt_arguments = self._flat_values(combination)
-            placeholders = self._extract_placeholders(combination[0]['prompt'], prompt_arguments, self.get_functions())
-            yield ParameterCombination(combination, placeholders=placeholders)
+            #placeholders = self._extract_placeholders(combination[0]['prompt'], prompt_arguments, self.get_functions())
+            _, new_prompt = self._interpolate(combination[0]['prompt'], prompt_arguments, replace=True, raise_on_missing=True)
+            yield ParameterCombination(combination, prompt=new_prompt)
 
             if callback:
                 keep_running = callback(i+1, num_combinations)
@@ -724,8 +745,9 @@ class Model:
         parameters = [{'_id': prompt_name, 'prompt': prompt}] + [self.get_selected_values()]
 
         prompt_arguments = self._flat_values(parameters)
-        placeholders = self._extract_placeholders(prompt, prompt_arguments, self.get_functions())
-        return ParameterCombination(parameters, placeholders=placeholders)
+        #placeholders = self._extract_placeholders(prompt, prompt_arguments, self.get_functions())
+        _, new_prompt = self._interpolate(prompt, prompt_arguments, replace=True, raise_on_missing=True)
+        return ParameterCombination(parameters, prompt=new_prompt)
 
     def _flat_values(self, parameters):
         prompt_arguments = {}
@@ -801,7 +823,7 @@ class Model:
         return full_results
     
 class ParameterCombination:
-    def __init__(self, combination: list, placeholders: list) -> None:
+    def __init__(self, combination: list, prompt: str) -> None:
         prompt_arguments = {}  # Arguments used in the prompt expansion
         prompt_arguments_masked = {}  # Arguments used in the prompt expansion, but masked when an _id is present
 
@@ -816,24 +838,8 @@ class ParameterCombination:
 
             prompt_arguments.update(values)
 
-        # Create a dictionary with placeholder. Duplicate placeholders are overwritten, since they have the same value
-        arguments = {"{{{}}}".format(v['placeholder']): v['value'] for v in placeholders}
-
-        try:
-            self._prompt_content = prompt_arguments['prompt'].format(**arguments)
-            self._missing_argument = None
-        except KeyError as e:
-            print(f'Error: Prompt file contains argument "{e}", but it was not found in the input arguments.')
-            print(f'Please, check the prompt file and the input arguments.')
-            self._prompt_content = None
-            self._missing_argument = [str(e)]
-            return  # TODO Test this case when we delete a parameter after validating the prompt content
-        except Exception as e:
-            print(f'Error: {e}')
-            print('Please, check the prompt file and the input arguments.')
-            raise
-        
-
+        self._prompt_content = prompt
+        self._missing_argument = None
 
         # Calculate non-cryptographic hash of the prompt content
         # sha1 cryptographic hash of the prompt content
