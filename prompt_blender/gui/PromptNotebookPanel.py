@@ -134,11 +134,12 @@ class PromptPage(wx.Panel):
         # Background color for the prompt editor
         bg_color = self.prompt_editor.StyleGetBackground(wx.stc.STC_STYLE_DEFAULT)
 
-        # Reset all styling to default
-        self.prompt_editor.StartStyling(0)
-
         # Convert text to bytes for byte positions
         text_bytes = text.encode('utf-8')
+
+        # Reset all styling to default
+        self.prompt_editor.StartStyling(0)
+        self.prompt_editor.SetStyling(len(text_bytes), 0)
 
         # Aplicar coloração ao texto
         for var_name, start, end in highlight_positions:
