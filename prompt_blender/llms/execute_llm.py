@@ -5,61 +5,32 @@ import importlib.util
 import copy
 import traceback
 
+from colorama import Fore, Style
 from prompt_blender import info
 from prompt_blender.analysis import gpt_json
+from prompt_blender.modules_loader import load_modules_generic
+
+def validate_llm_module(module):
+    """Validate LLM module and return the module if valid."""
+    if not hasattr(module, 'exec'):
+        raise ValueError("Missing exec method")
+
+    if not 'version' in module.module_info:
+        module.module_info['version'] = ''
+
+    module_id = module.module_info.get('id', None)
+    if not module_id:
+        raise ValueError("Missing module id")
+
+    return module
 
 def load_modules(paths):
     """
     Load all available LLM modules.
     """
-
-    # Read all modules in the directories
-    paths = [path for path in paths if os.path.exists(path)]
-    paths.append(os.path.dirname(__file__))
-    candidate_modules = [os.path.join(path, file) for path in paths for file in os.listdir(path) if file.endswith('.py') and file not in ['__init__.py']]
-    candidate_modules.remove(__file__)
-
-    # list all modules loaded from the llms package. Load it dynamically
-    modules = {}
-    for module_file in candidate_modules:  # FIXME duplicated code
-        module_name = os.path.basename(module_file).split('.')[0]
-        print(f'Loading {module_name}')
-        spec = importlib.util.spec_from_file_location(module_name, module_file)
-        module = importlib.util.module_from_spec(spec)
-
-        try:
-            spec.loader.exec_module(module)
-        except Exception as e:
-            print("*******WARNING*******")
-            print(f'Error loading module {module_name}: {e}')
-            # dump stack trace
-            traceback.print_exc()
-            print("*********************")
-
-            continue
-
-        if not hasattr(module, 'exec'):
-            print(f'Warning: module {module_name} does not have an exec method.'.format(module_name))
-            continue
-
-        if not hasattr(module, 'module_info'):
-            module.module_info = {
-                'name': module_name, 
-                'id': None,
-                'description': 'No description available'
-            }
-
-        if not 'version' in module.module_info:
-            module.module_info['version'] = ''
-        module_id = module.module_info.get('id', None)
-
-        if not module_id:
-            print(f'Warning: module {module_name} does not have an id.'.format(module_name))
-            continue
-
-        modules[module_id] = module
-
-    return modules
+    modules = load_modules_generic(paths, "LLM", validate_llm_module, "module_info", __file__)
+    # Convert from name-based keys to id-based keys
+    return {module.module_info['id']: module for module in modules.values()}
 
 
 def expire_cache(run_args, config, cache_dir, cache_timeout=None, progress_callback=None, combinations=None, error_items_only=False):

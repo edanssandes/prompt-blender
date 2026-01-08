@@ -2,6 +2,13 @@ import os
 # Disable telemetry before importing browser_use
 os.environ["ANONYMIZED_TELEMETRY"] = "false"
 
+# Check if there is an browser_use module. If not, don't load the remainder of this file.
+try:
+    import browser_use
+except ImportError:
+    raise ImportError("Please, use `pip install browser_use` to enable this feature.")
+
+
 from browser_use import Agent, Browser, Controller, ActionResult
 from browser_use.browser.context import BrowserContext
 from browser_use.browser.context import BrowserContextConfig

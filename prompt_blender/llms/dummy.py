@@ -3,8 +3,10 @@ import random
 import wx
 import json
 
+MODULE_UUID = '66981b2d-3b8b-473a-9caf-3cd9c329f5d7'
+
 module_info = {
-    'id': '66981b2d-3b8b-473a-9caf-3cd9c329f5d7',
+    'id': MODULE_UUID,
     'name': 'Dummy',
     'description': 'Dummy execution module to mimic API return for testing purposes.',
     'version': '1.0.0',

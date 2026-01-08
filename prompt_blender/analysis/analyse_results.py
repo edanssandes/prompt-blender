@@ -4,58 +4,29 @@ import json
 import os
 import traceback
 
-def load_modules(paths):
+from colorama import Fore, Style
+from prompt_blender.modules_loader import load_modules_generic
+
+def validate_analysis_module(module):
+    """Validate analysis module and return the analysis function dict if valid."""
+    if not hasattr(module, 'analyse'):
+        raise ValueError("Missing analyse function")
+
+    info = module.analyse_info
+    description = info.get('description', 'No description provided')
+
+    return {
+        'description': description,
+        'llm_modules': info.get('llm_modules', None),
+        'analyse': module.analyse,
+        'reduce': module.reduce if hasattr(module, 'reduce') else None,
+    }
+
+def load_modules(paths=None):
     """
     Load all available analysis modules.
     """
-
-    analyse_functions = {}
-    
-    # Read all modules in the directories
-    paths = [path for path in paths if os.path.exists(path)]
-    paths.append(os.path.dirname(__file__))
-    candidate_modules = [os.path.join(path, file) for path in paths for file in os.listdir(path) if file.endswith('.py') and file not in ['__init__.py']]
-    candidate_modules.remove(__file__)
-
-    # list all modules loaded from the llms package. Load it dynamically
-    modules = {}
-    for module_file in candidate_modules:  # FIXME duplicated code
-        module_name = os.path.basename(module_file).split('.')[0]
-        print(f'Loading {module_name}')
-        spec = importlib.util.spec_from_file_location(module_name, module_file)
-        module = importlib.util.module_from_spec(spec)
-
-        try:
-            spec.loader.exec_module(module)
-        except Exception as e:
-            print("*******WARNING*******")
-            print(f'Error loading module {module_name}: {e}')
-            # dump stack trace
-            traceback.print_exc()
-            print("*********************")
-
-            continue
-
-
-        if hasattr(module, 'analyse_info'):
-            info = module.analyse_info
-            print(f'Warning: Module {module_name} does not have an analyse_info dictionary. Skipping.')
-        if not hasattr(module, 'analyse'):
-            print(f'Warning: Module {module_name} does not have an analyse function. Skipping.')
-            continue
-        
-        name = info.get('name', module_name)
-        description = info.get('description', 'No description provided')
-
-        print(f'Loading module: {name} - {description}')
-        analyse_functions[name] = {
-            'description': description,
-            'llm_modules': info.get('llm_modules', None),
-            'analyse': module.analyse,
-            'reduce': module.reduce if hasattr(module, 'reduce') else None,
-            }
-
-    return analyse_functions
+    return load_modules_generic(paths, "analysis", validate_analysis_module, "analyse_info", __file__)
 
 
 def analyse_results(run, config, output_dir, analyse_functions):

@@ -31,7 +31,6 @@ class Preferences():
     
     @staticmethod
     def load_from_file(filename=None):
-        print("Loading preferences from file: ", filename)
         preferences = Preferences()
 
         if filename is None:

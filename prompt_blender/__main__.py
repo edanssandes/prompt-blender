@@ -12,6 +12,10 @@ from prompt_blender.gui import main_wx
 from prompt_blender.analysis import analyse_results
 from prompt_blender import result_file
 
+import colorama
+
+# Initialize colorama for cross-platform colored output
+colorama.init(autoreset=True)
 
 parser = argparse.ArgumentParser()
 parser.add_argument('config', nargs='?', default=None, help='Path to the configuration file (.pbp)')
