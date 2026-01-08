@@ -11,6 +11,7 @@ class ExecuteDialog(wx.Dialog):
         # Load fom llm_models
         self.module = module
         self.module_id = module.module_info['id']
+        self.module_name = module.module_info['name']
         if config.module_args:
             self.module_args = config.module_args
             self.config_name = config.name
@@ -212,11 +213,13 @@ class ExecuteDialog(wx.Dialog):
     def get_values(self):
         name = self.txt_name.GetValue()
         module_id = self.module_id
+        module_name = self.module_name
         
         module_args = self.get_module_args()
         return ConfigModel(
             name=name,
             module_id=module_id,
+            module_name=module_name,
             module_args=module_args
         )
     

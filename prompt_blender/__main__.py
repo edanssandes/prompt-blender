@@ -111,6 +111,9 @@ def main():
     analyse_functions = analyse_results.load_modules(["./plugins"])
     llm_modules = execute_llm.load_modules(["./plugins"])
 
+    # Valida se todos os runs têm módulos válidos
+    model.validate_runs_modules(llm_modules)
+
     print('Generating prompts...', end='')
     output_files = blend_prompt(model, cache_dir)
     print(f' Done: {len(output_files)} files generated.')

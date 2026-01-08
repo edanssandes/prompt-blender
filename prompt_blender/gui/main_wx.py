@@ -43,8 +43,9 @@ class MainFrame(wx.Frame):
 
         self.preferences = Preferences.load_from_file()
 
-        self.analyse_functions = analyse_results.load_modules(["./plugins"])
         self.llm_modules = execute_llm.load_modules(["./plugins"])
+        self.analyse_functions = analyse_results.load_modules()
+        self.validate_model(self.data)
 
         self.load_images()
         self.setup_menu()
@@ -198,6 +199,7 @@ class MainFrame(wx.Frame):
         file_path = self.preferences.recent_files[file_index]
         try:
             self.data = Model.create_from_file(file_path)
+            self.validate_model(self.data)
         except FileNotFoundError:
             wx.MessageBox(f"File does not exist: {file_path}", "Error", wx.OK | wx.ICON_ERROR)
             self.preferences.remove_recent_file(file_path)
@@ -211,6 +213,12 @@ class MainFrame(wx.Frame):
         self.reset_view_mode()
         self.populate_data()
 
+    def validate_model(self, model):
+        """Valida se todos os runs têm módulos válidos"""
+        try:
+            model.validate_runs_modules(self.llm_modules)
+        except ValueError as e:
+            wx.MessageBox(f"Error in project: {e}", "Error", wx.OK | wx.ICON_ERROR)
 
     def create_top_panel(self, panel):
         # Adicionando um segundo SplitterWindow
@@ -497,6 +505,7 @@ class MainFrame(wx.Frame):
             path = dialog.GetPath()
             try:
                 self.data = Model.create_from_file(path)
+                self.validate_model(self.data)
                 self.data.add_on_modified_callback(self.update_project_state)
                 self.reset_view_mode()
                 self.populate_data()
@@ -767,7 +776,6 @@ class MainFrame(wx.Frame):
 
     def update_run_configurations(self):
         # Update the run configurations dialog with the current data
-        print(self.data.run_configurations)
         self.execute_dialog.set_configurations(self.data.run_configurations)
 
     def update_project_state(self):
@@ -1385,7 +1393,8 @@ class MainFrame(wx.Frame):
     def refresh_prompts(self):
         run_args = self.data.get_run_args(self.llm_modules)
         run_hashes = {run_name: run_args['run_hash'] 
-                      for run_name, run_args in run_args.items()}
+                      for run_name, run_args in run_args.items()
+                      if run_args is not None}
 
         for idx, prompt_page in enumerate(self.prompt_pages):
             prompt_page.view_mode = self.view_mode.GetSelection()

@@ -58,7 +58,8 @@ class RunConfigurationsDialog(wx.Dialog):
         vbox.Add(self.button_panel, flag=wx.EXPAND | wx.TOP | wx.LEFT | wx.RIGHT, border=10)
 
         # Listbox for configurations
-        self.listbox = wx.ListBox(panel)
+        self.listbox = wx.ListCtrl(panel, style=wx.LC_REPORT | wx.LC_SINGLE_SEL | wx.LC_NO_HEADER)
+        self.listbox.InsertColumn(0, "Configurations", width=999)  # Single column taking full width
         vbox.Add(self.listbox, proportion=1, flag=wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, border=10)
 
         # --- Bottom panel for "Run All" button ---
@@ -80,8 +81,8 @@ class RunConfigurationsDialog(wx.Dialog):
         self.add_button.Bind(wx.EVT_BUTTON, self.add_configuration)
         self.edit_button.Bind(wx.EVT_BUTTON, self.edit_configuration)
         self.remove_button.Bind(wx.EVT_BUTTON, self.remove_configuration)
-        self.listbox.Bind(wx.EVT_LISTBOX, self.on_select)
-        self.listbox.Bind(wx.EVT_LISTBOX_DCLICK, self.on_edit_double_click)  # Double click to edit
+        self.listbox.Bind(wx.EVT_LIST_ITEM_SELECTED, self.on_select)
+        self.listbox.Bind(wx.EVT_LIST_ITEM_ACTIVATED, self.on_edit_double_click)  # Double click to edit
         self.run_all_button.Bind(wx.EVT_BUTTON, self.run_all_configurations)
 
         self.update_enabled_buttons()
@@ -92,9 +93,12 @@ class RunConfigurationsDialog(wx.Dialog):
     def set_configurations(self, configurations):
         """Set configurations from a list of dictionaries."""
         self.configurations = [ConfigModel.from_dict(key, value) for key, value in configurations.items()]
-        self.listbox.Clear()
-        for config in self.configurations:
-            self.listbox.Append(self.config_to_string(config))
+        self.listbox.DeleteAllItems()
+        for i, config in enumerate(self.configurations):
+            self.listbox.InsertItem(i, self.config_to_string(config))
+            if not config.is_valid(self.available_modules):
+                self.listbox.SetItemTextColour(i, wx.RED)
+
         self.update_enabled_buttons()
 
 
@@ -103,13 +107,17 @@ class RunConfigurationsDialog(wx.Dialog):
 
     def update_enabled_buttons(self):
         """Update the enabled state of the edit and remove buttons based on selection."""
-        selected = self.listbox.GetSelection() != wx.NOT_FOUND
+        selected = self.listbox.GetFirstSelected() != -1
         self.edit_button.Enable(selected)
         self.remove_button.Enable(selected)
 
         # If listbox is empty, disable the run all button
-        empty = self.listbox.GetCount() == 0
-        self.run_all_button.Enable(not empty)
+        empty = self.listbox.GetItemCount() == 0
+
+        # If any configuration is invalid, disable the run all button
+        all_valid = all(config.is_valid(self.available_modules) for config in self.configurations)
+
+        self.run_all_button.Enable(not empty and all_valid)
 
     def add_configuration(self, event):
         # show a SingleChoiceDialog with the available modules names
@@ -138,7 +146,8 @@ class RunConfigurationsDialog(wx.Dialog):
         print(result)
         if result:
             self.configurations.append(result)
-            self.listbox.Append(self.config_to_string(result))
+            index = self.listbox.GetItemCount()
+            self.listbox.InsertItem(index, self.config_to_string(result))
             self.notify_change()
             self.update_enabled_buttons()
 
@@ -151,29 +160,39 @@ class RunConfigurationsDialog(wx.Dialog):
 
 
     def config_to_string(self, config):
-        module_name = self.available_modules[config.module_id].module_info['name']
-        return f"{config.name} ({module_name})"
+        if not config.is_valid(self.available_modules):
+            return f"{config.name} (Unknown Module)"
+        else:
+            module_name = self.available_modules[config.module_id].module_info['name']
+            return f"{config.name} ({module_name})"
 
 
     def edit_configuration(self, event):
-        selected_index = self.listbox.GetSelection()
-        if selected_index == wx.NOT_FOUND:
+        selected_index = self.listbox.GetFirstSelected()
+        if selected_index == -1:
             return
         current_config = self.configurations[selected_index]
+        if not current_config.is_valid(self.available_modules):
+            wx.MessageBox(
+                f"The selected configuration '{current_config.name}' is associated with an unknown or unloaded module and cannot be edited.",
+                "Invalid Configuration",
+                wx.OK | wx.ICON_ERROR
+            )
+            return
         selected_module = self.available_modules[current_config.module_id]
 
         result = self.prompt_for_configuration("Edit Configuration", module=selected_module, config=current_config)
         if result:
             self.configurations[selected_index] = result
-            self.listbox.SetString(selected_index, self.config_to_string(result))
+            self.listbox.SetItemText(selected_index, self.config_to_string(result))
             self.notify_change()
             self.update_enabled_buttons()
 
     def remove_configuration(self, event):
-        selected_index = self.listbox.GetSelection()
-        if selected_index == wx.NOT_FOUND:
+        selected_index = self.listbox.GetFirstSelected()
+        if selected_index == -1:
             return
-        config_name = self.listbox.GetString(selected_index)
+        config_name = self.listbox.GetItemText(selected_index)
         confirm = wx.MessageBox(
             f"Are you sure you want to delete the configuration '{config_name}'?",
             "Confirm Deletion",
@@ -182,8 +201,7 @@ class RunConfigurationsDialog(wx.Dialog):
         if confirm != wx.YES:
             return
         self.configurations.pop(selected_index)
-        self.listbox.Delete(selected_index)
-        self.listbox.SetSelection(wx.NOT_FOUND)  # Clear selection
+        self.listbox.DeleteItem(selected_index)
 
         self.notify_change()
         self.update_enabled_buttons()

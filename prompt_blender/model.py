@@ -18,6 +18,8 @@ import hashlib
 
 from prompt_blender.rag.embedding import Embedding
 
+from prompt_blender.llms.dummy import MODULE_UUID as DUMMY_MODULE_UUID
+
 
 FILE_FORMAT_VERSION = "2.0"
 
@@ -124,7 +126,7 @@ class Model:
         if 'runs' not in data or not data['runs']:
             data['runs'] = {
                 "Dummy Run": {
-                    "module_id": "66981b2d-3b8b-473a-9caf-3cd9c329f5d7",
+                    "module_id": DUMMY_MODULE_UUID,
                     "module_args": {
                         "stub_response": "Stub response from the dummy model."
                     }
@@ -134,6 +136,14 @@ class Model:
         model = Model(data)
         model.is_modified = False
         return model
+
+    def validate_runs_modules(self, llm_modules):
+        """Valida se todos os runs têm módulos válidos, caso contrário, lança um erro."""
+        module_uuids = llm_modules.keys()
+        for run_name, run in self.run_configurations.items():
+            if run['module_id'] not in module_uuids:
+                raise ValueError(f"Module '{run['module_id']}' ({run.get('module_name', '?')}) for run '{run_name}' is not valid.")
+
 
     def save_to_file(self, file_path=None):
         if file_path is None:
@@ -695,21 +705,25 @@ class Model:
         run_args = {}
 
         for name, run_configuration in self.run_configurations.items():
-            llm_module = llm_modules[run_configuration['module_id']] if llm_modules else None
+            module_id = run_configuration['module_id']
+            if llm_modules is None or module_id not in llm_modules:
+                run_args[name] = None
+            else:
+                llm_module = llm_modules[module_id]
 
-            module_info = llm_module.module_info
-            module_name = module_info['name']
-            args = run_configuration['module_args']
-            hash_args = hashlib.md5(json.dumps(args, sort_keys=True).encode()).hexdigest()
-            run_hash = f'{module_info["cache_prefix"]}_{hash_args}'
+                module_info = llm_module.module_info
+                module_name = module_info['name']
+                args = run_configuration['module_args']
+                hash_args = hashlib.md5(json.dumps(args, sort_keys=True).encode()).hexdigest()
+                run_hash = f'{module_info["cache_prefix"]}_{hash_args}'
 
-            run_args[name] = {
-                'llm_module': llm_module,
-                'module_info': module_info,
-                'module_name': module_name,
-                'args': args,
-                'run_hash': run_hash
-            }
+                run_args[name] = {
+                    'llm_module': llm_module,
+                    'module_info': module_info,
+                    'module_name': module_name,
+                    'args': args,
+                    'run_hash': run_hash
+                }
             
         return run_args
    
