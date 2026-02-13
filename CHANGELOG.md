@@ -14,11 +14,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+(Nothing)
+
+## [0.2.4] - 2026-02-13
+
 ### Added
 
-- RAG feature implementation
+- New PBP file format
+- Changed prompt {placeholder} syntax to {{placeholder}}
+- Improved editor interface
 - Zoom functionality to PromptPage
 - New status label in the bottom pane
+- RAG feature implementation (Experimental)
 
 ### Changed
 
