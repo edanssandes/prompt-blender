@@ -632,6 +632,21 @@ class Model:
         return tag_positions
 
 
+    @staticmethod
+    def _to_str(value):
+        """Convert a value to string for interpolation.
+        
+        None and NaN are converted to empty string.
+        Other non-string types are converted via str().
+        """
+        if value is None:
+            return ""
+        if isinstance(value, float) and value != value:  # NaN check
+            return ""
+        if not isinstance(value, str):
+            return str(value)
+        return value
+
     def _extract_placeholders(self, text, values=None, functions=None, raise_on_missing=False) -> list:
         placeholders = []
 
@@ -655,7 +670,7 @@ class Model:
             replacement_value = None
 
             if f_params is None and values is not None and var_name in values:
-                replacement_value = values.get(var_name)
+                replacement_value = self._to_str(values.get(var_name))
             elif functions is not None and var_name in functions:
                 replacement_value = str(functions[var_name](values, f_params))
             else:

@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Fixed drag and drop of variables to use the new {{placeholder}} syntax instead of the old {placeholder}
+- Fixed variable interpolation crash when a field is empty (None, NaN, or non-string values)
 
 ## [0.2.4] - 2026-02-13
 
