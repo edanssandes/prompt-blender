@@ -536,7 +536,8 @@ class Model:
             variable = _variable
 
         if extension in ('xlsx', 'xls'):
-            df = pd.read_excel(file_path)
+            # read excel - all strings to avoid Timestamp objects that are not JSON serializable
+            df = pd.read_excel(file_path, dtype=str)
             param = df.to_dict(orient='records')
         elif extension in ('csv',):
             # read csv - all strings
