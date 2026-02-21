@@ -14,7 +14,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
-(Nothing)
+### Added
+
+### Changed
+
+### Fixed
+
+- Fixed drag and drop of variables to use the new {{placeholder}} syntax instead of the old {placeholder}
 
 ## [0.2.4] - 2026-02-13
 

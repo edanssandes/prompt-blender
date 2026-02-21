@@ -331,7 +331,7 @@ class MainFrame(wx.Frame):
                 param_id, param_key = self.tree.GetItemData(item)
                 if param_key is not None:  # Only allow dragging variable names, not table names
                     # Create a text data object with the variable name
-                    text_data = wx.TextDataObject(f"{{{param_key}}}")
+                    text_data = wx.TextDataObject(f"{{{{{param_key}}}}}")
                     drag_source = wx.DropSource(self.tree)
                     drag_source.SetData(text_data)
                     result = drag_source.DoDragDrop(True)
