@@ -12,8 +12,17 @@ from prompt_blender.modules_loader import load_modules_generic
 
 def validate_llm_module(module):
     """Validate LLM module and return the module if valid."""
-    if not hasattr(module, 'exec'):
-        raise ValueError("Missing exec method")
+    if hasattr(module, 'module'):
+        # Forward compatibility with future refactor where each module should have a 'module' object that contains the actual implementation.
+        module.exec_init = module.module.exec_init
+        module.exec = module.module.exec
+        module.exec_delayed = module.module.exec_delayed if hasattr(module.module, 'exec_delayed') else None
+        module.exec_close = module.module.exec_close
+        module.get_args = module.module.get_args
+        module.ConfigPanel = module.module.ConfigPanel
+    else:
+        if not hasattr(module, 'exec'):
+            raise ValueError("Missing exec method")
 
     if not 'version' in module.module_info:
         module.module_info['version'] = ''
@@ -21,7 +30,7 @@ def validate_llm_module(module):
     module_id = module.module_info.get('id', None)
     if not module_id:
         raise ValueError("Missing module id")
-
+    
     return module
 
 def load_modules(paths):
