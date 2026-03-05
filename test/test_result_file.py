@@ -17,8 +17,8 @@ class TestResultFile:
         """Create a sample configuration for testing."""
         data = {
             "prompts": {
-                "test_prompt": "Hello {name}!",
-                "another_prompt": "Goodbye {name}!"
+                "test_prompt": "Hello {{name}}!",
+                "another_prompt": "Goodbye {{name}}!"
             },
             "parameters": {
                 "name": [{"name": "World"}, {"name": "Universe"}]

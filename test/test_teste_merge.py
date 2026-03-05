@@ -12,7 +12,7 @@ class TestParameterCombinations:
         """Test basic parameter combinations generation."""
         # Create a model with test data
         data = {
-            "prompts": {"test_prompt": "Enter a number: {param1}+{param2}"},
+            "prompts": {"test_prompt": "Enter a number: {{param1}}+{{param2}}"},
             "parameters": {
                 "param1": [{"param1": 1}, {"param1": 2}, {"param1": 3}],
                 "param2": [{"param2": 4}, {"param2": 5}]
@@ -75,23 +75,58 @@ class TestParameterCombinations:
         assert callback_calls[1] == (1, 2)
         assert callback_calls[2] == (2, 2)
 
-    def test_parameter_combinations_missing_argument(self):
-        """Test handling of missing arguments in prompt."""
+    def test_parameter_combinations_with_missing_param(self):
+        """Test parameter combinations with missing parameter."""
+        prompt = "Enter a number: {{param1}}+{{missing_param}}"
+        values = [{"param1": 1}]
         data = {
-            "prompts": {"test_prompt": "Enter a number: {param1}+{missing_param}"},
+            "prompts": {"test_prompt": prompt},
             "parameters": {
-                "param1": [{"param1": 1}, {"param1": 2}]
+                "param1": values
+            },
+            "runs": {}
+        }        
+
+        # This will raise an exception
+        try:
+            model = Model(data)
+            model.get_parameter_combinations()
+            raise AssertionError("Expected ValueError for missing parameter, but none was raised.")
+        except ValueError as e:
+            assert str(e) == "Missing parameter: missing_param"
+
+
+
+    def test_extract_placeholder(self):
+        """Test handling of missing arguments in prompt."""
+        prompt = "Enter a number: {{param1}}+{{missing_param}}"
+        values = [{"param1": 1}]
+        data = {
+            "prompts": {"test_prompt": prompt},
+            "parameters": {
+                "param1": values
             },
             "runs": {}
         }
         model = Model(data)
 
-        combinations = list(model.get_parameter_combinations())
+        placeholders = model._extract_placeholders(text=prompt, values=values[0])
         
-        assert len(combinations) == 2
-        for combo in combinations:
-            assert combo.missing_argument == ["'missing_param'"]
-            assert combo.prompt_content is None
+        assert len(placeholders) == 2
+        assert placeholders[0] == {
+            'placeholder': 'param1', 
+            'var_name': 'param1', 
+            'function_params': None, 
+            'start': 16, 'end': 26, 
+            'value': '1'
+        }
+        assert placeholders[1] == {
+            'placeholder': 'missing_param', 
+            'var_name': 'missing_param', 
+            'function_params': None, 
+            'start': 27, 'end': 44, 
+            'value': '[!! Missing Variable: missing_param !!]'
+        }
 
     def test_blend_prompt_function(self):
         """Test the blend_prompt function with a proper Model instance."""
@@ -101,7 +136,7 @@ class TestParameterCombinations:
         with tempfile.TemporaryDirectory() as temp_dir:
             # Create a model
             data = {
-                "prompts": {"test_prompt": "Hello {name}!"},
+                "prompts": {"test_prompt": "Hello {{name}}!"},
                 "parameters": {
                     "name": [{"name": "World"}, {"name": "Universe"}]
                 },
@@ -124,13 +159,12 @@ class TestParameterCombinations:
     def test_parameter_combination_properties(self):
         """Test ParameterCombination properties."""
         combination_data = [
-            {"_id": "test_prompt", "prompt": "Hello {name}!"},
+            {"_id": "test_prompt", "prompt": "Hello {{name}}!"},
             {"name": "World"}
         ]
         
-        combo = ParameterCombination(combination_data)
+        combo = ParameterCombination(combination_data, prompt="Hello World!")
         
-        assert combo.prompt_content == "Hello World!"
         assert combo.missing_argument is None
         assert combo.filepath.startswith("cache/")
         assert combo.prompt_file.endswith("/prompt.txt")
@@ -158,7 +192,7 @@ class TestParameterCombinations:
     def test_get_current_combination(self):
         """Test getting current combination for a specific prompt."""
         data = {
-            "prompts": {"test_prompt": "Hello {name}! Today is {day}."},
+            "prompts": {"test_prompt": "Hello {{name}}! Today is {{day}}."},
             "parameters": {
                 "name": [{"name": "World"}, {"name": "Universe"}],
                 "day": [{"day": "Monday"}, {"day": "Tuesday"}]
