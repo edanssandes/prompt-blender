@@ -1014,6 +1014,22 @@ class MainFrame(wx.Frame):
         ret = self.execute_dialog.ShowModal()
 
         if ret == wx.ID_OK:
+            # Check if the project has unsaved changes before running
+            if self.data.is_modified:
+                dialog = wx.MessageDialog(
+                    self,
+                    "The project has unsaved changes.\nDo you want to save before running?",
+                    "Unsaved Changes",
+                    wx.YES_NO | wx.YES_DEFAULT | wx.ICON_QUESTION
+                )
+                dialog.SetYesNoCancelLabels("&Save and Run", "&Run without Saving", "")
+                save_ret = dialog.ShowModal()
+                dialog.Destroy()
+
+                if save_ret == wx.ID_YES:
+                    if not self.save_project():
+                        return  # Save was cancelled
+
             self.progress_dialog.run_task(self.task_all)
 
     #def run_prompt(self):

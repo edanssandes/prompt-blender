@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Ask to save unsaved changes before running combinations
+
 ### Changed
 
 ### Fixed
