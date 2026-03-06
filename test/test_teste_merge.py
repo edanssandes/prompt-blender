@@ -87,15 +87,9 @@ class TestParameterCombinations:
             "runs": {}
         }        
 
-        # This will raise an exception
-        try:
+        with pytest.raises(ValueError, match=r"^Error: Prompt contains argument \"missing_param\", but it was not found in the input arguments.$"):
             model = Model(data)
-            model.get_parameter_combinations()
-            raise AssertionError("Expected ValueError for missing parameter, but none was raised.")
-        except ValueError as e:
-            assert str(e) == "Missing parameter: missing_param"
-
-
+            list(model.get_parameter_combinations())
 
     def test_extract_placeholder(self):
         """Test handling of missing arguments in prompt."""
