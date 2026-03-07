@@ -1,20 +1,15 @@
 from prompt_blender.llms.common.openai_compatible import OpenAICompatibleModule
 
-MODULE_UUID = '7b633c8e-697d-4761-98f9-8bbc366ab755'
-VERSION = '1.0.0'
-RELEASE_DATE = '2026-02-21'
-
-module_info = {
-    'id': MODULE_UUID,
-    'name': 'Groq',
-    'description': 'Execute Groq models via API.',
-    'version': VERSION,
-    'release_date': RELEASE_DATE,
-    'cache_prefix': 'groq',
-}
-
-
 module = OpenAICompatibleModule(
+    ## General info
+    id='7b633c8e-697d-4761-98f9-8bbc366ab755',
+    name='Groq',
+    description='Execute Groq models via API.',
+    version='2.0.0',
+    release_date='2026-03-06',
+    cache_prefix='groq',
+
+    ## API info
     base_url='https://api.groq.com/openai/v1',
     models=[
         "llama-3.3-70b-versatile", 

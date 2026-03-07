@@ -20,6 +20,10 @@ def validate_llm_module(module):
         module.exec_close = module.module.exec_close
         module.get_args = module.module.get_args
         module.ConfigPanel = module.module.ConfigPanel
+
+        # Allow module_info to live inside the module object instead of at module level
+        if not hasattr(module, 'module_info') and hasattr(module.module, 'module_info') and module.module.module_info is not None:
+            module.module_info = module.module.module_info
     else:
         if not hasattr(module, 'exec'):
             raise ValueError("Missing exec method")

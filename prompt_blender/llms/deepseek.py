@@ -1,20 +1,15 @@
 from prompt_blender.llms.common.openai_compatible import OpenAICompatibleModule
 
-MODULE_UUID = '475f4690-fb69-49ae-adb3-01d42e0677d5'
-VERSION = '1.0.0'
-RELEASE_DATE = '2026-02-21'
-
-module_info = {
-    'id': MODULE_UUID,
-    'name': 'DeepSeek',
-    'description': 'Execute DeepSeek models via API.',
-    'version': VERSION,
-    'release_date': RELEASE_DATE,
-    'cache_prefix': 'deepseek',
-}
-
-
 module = OpenAICompatibleModule(
+    ## General info
+    id='475f4690-fb69-49ae-adb3-01d42e0677d5',
+    name='DeepSeek',
+    description='Execute DeepSeek models via API.',
+    version='2.0.0',
+    release_date='2026-03-06',
+    cache_prefix='deepseek',
+
+    ## API info
     base_url='https://api.deepseek.com',
     models=[
             "deepseek-chat",

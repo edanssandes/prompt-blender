@@ -1,19 +1,15 @@
 from prompt_blender.llms.common.openai_compatible import OpenAICompatibleModule
 
-MODULE_UUID = 'b85680ef-8da2-4ed5-b881-ce33fe5d3ec0'
-VERSION = '1.0.0'
-RELEASE_DATE = '2025-07-01'
-
-module_info = {
-    'id': MODULE_UUID,
-    'name': 'ChatGPT',
-    'description': 'Execute OpenAI models via API.',
-    'version': VERSION,
-    'release_date': RELEASE_DATE,
-    'cache_prefix': 'openai',
-}
-
 module = OpenAICompatibleModule(
+    ## General info
+    id='b85680ef-8da2-4ed5-b881-ce33fe5d3ec0',
+    name='ChatGPT',
+    description='Execute OpenAI models via API.',
+    version='2.0.0',
+    release_date='2026-03-06',
+    cache_prefix='openai',
+
+    ## API info
     base_url=None,  # Default
     models=[
         "gpt-4o-mini", 

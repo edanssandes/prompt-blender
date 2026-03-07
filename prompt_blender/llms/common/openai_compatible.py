@@ -74,14 +74,35 @@ class OpenAICompatibleModule:
                  base_url=None,
                  models=None,
                  default_model=None,
-                 environment_var=None):
+                 environment_var=None,
+                 id=None,
+                 name=None,
+                 description=None,
+                 version=None,
+                 release_date=None,
+                 cache_prefix=None):
         self.base_url = base_url
         self.models = models
         self.default_model = default_model
         self.environment_var = environment_var
-        
+
+        self._module_info = None
+        if id is not None:
+            self._module_info = {
+                'id': id,
+                'name': name,
+                'description': description,
+                'version': version or '',
+                'release_date': release_date,
+                'cache_prefix': cache_prefix,
+            }
+
         self._gui = False
         self.client = None
+
+    @property
+    def module_info(self):
+        return self._module_info
 
     def exec_init(self, gui=False):
         self.client = None
