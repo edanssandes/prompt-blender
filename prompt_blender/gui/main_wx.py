@@ -10,6 +10,7 @@ import pandas as pd
 from prompt_blender.blend import blend_prompt
 
 from prompt_blender.llms import execute_llm
+from prompt_blender.llms.common.stats import ExecutionStats
 from prompt_blender.gui.dialogs import ProgressDialog, RunConfigurationsDialog, InputListDialog, RagEmbeddingDialog
 from prompt_blender.preferences import Preferences
 
@@ -1008,6 +1009,7 @@ class MainFrame(wx.Frame):
         # Execute the prompts
         self.execute_error = None
         self.interrupted = False
+        self.execute_stats = None
 
         #self.progress_dialog.run_task(long_running_task)
         self.execute_dialog.CentreOnParent()
@@ -1181,12 +1183,14 @@ class MainFrame(wx.Frame):
             run_args = self.data.get_run_args(self.llm_modules)
 
             max_timestamp = ''
+            total_stats = ExecutionStats()
 
             for name, run in run_args.items():
 
                 max_cost = self.preferences.max_cost
-                timestamp = execute_llm.execute_llm(run, self.data, output_dir, progress_callback=self.progress_dialog.update_progress, cache_timeout=cache_timeout, max_cost=max_cost, gui=True)
+                timestamp, stats = execute_llm.execute_llm(run, self.data, output_dir, progress_callback=self.progress_dialog.update_progress, cache_timeout=cache_timeout, max_cost=max_cost, gui=True)
                 max_timestamp = max(max_timestamp, timestamp)
+                total_stats += stats
 
                 if not self.progress_dialog.running:
                     self.interrupted = True
@@ -1200,6 +1204,8 @@ class MainFrame(wx.Frame):
             import traceback
             traceback.print_exc()
             return
+
+        self.execute_stats = total_stats
 
         if not self.interrupted:
             self.export_current_results(max_timestamp)
@@ -1240,7 +1246,9 @@ class MainFrame(wx.Frame):
         elif self.interrupted:
             wx.MessageBox("Interrupted Excecution", "Interruption", wx.OK | wx.ICON_INFORMATION)
         else:
-            wx.MessageBox("LLM Execution successful", "Success", wx.OK | wx.ICON_INFORMATION)
+            stats_str = str(self.execute_stats) if self.execute_stats else ""
+            message = f"LLM Execution successful" + (f"\n{stats_str}" if stats_str else "")
+            wx.MessageBox(message, "Success", wx.OK | wx.ICON_INFORMATION)
             self.export_results()
 
         self.progress_dialog.Hide()

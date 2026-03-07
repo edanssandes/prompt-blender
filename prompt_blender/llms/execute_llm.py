@@ -9,6 +9,7 @@ from colorama import Fore, Style
 from prompt_blender import info
 from prompt_blender.analysis import gpt_json
 from prompt_blender.modules_loader import load_modules_generic
+from prompt_blender.llms.common.stats import ExecutionStats
 
 def validate_llm_module(module):
     """Validate LLM module and return the module if valid."""
@@ -164,9 +165,11 @@ def execute_llm(run_args, config, cache_dir, cache_timeout=None, progress_callba
     max_timestamp = ''
     module_initialized = False
 
+    stats = ExecutionStats()
+
     # All combinations must sleep at most 2 seconds in total. So, for N combinations:
     # the maximum sleep time per combination is 2 seconds / N
-    sleep_time = min(max(2 / config.get_num_combinations(), 0.001), 0.1)
+    sleep_time = min(max(2 / config.get_num_combinations(), 0.0001), 0.01)
 
     try:
         for argument_combination in config.get_parameter_combinations(callback):
@@ -176,6 +179,10 @@ def execute_llm(run_args, config, cache_dir, cache_timeout=None, progress_callba
                     llm_module.exec_init(gui=gui)
                     module_initialized = True
                 output = _execute_inner(run_args, cache_dir, argument_combination)
+                if output is not None:
+                    stats.executed += 1
+            else:
+                stats.cached += 1
             time.sleep(sleep_time)  # This allows the animation to be shown in the GUI for executions that are too fast (e.g. full cache hits)
 
             if output:
@@ -185,10 +192,11 @@ def execute_llm(run_args, config, cache_dir, cache_timeout=None, progress_callba
         if progress_callback:
             r = progress_callback(0, 0, description="Processing delayed executions...")
             if not r:
-                return max_timestamp
+                return max_timestamp, stats
 
         pending = _execute_delayed(run_args, config, cache_dir, llm_module, module_initialized, gui)
         print(pending)
+        stats.pending = pending or 0
 
         if pending:
             raise RuntimeError(f"There {('is', 'are')[pending>1]} {pending} pending results in asynchronous execution. Please, run again later to get the final results.")
@@ -199,7 +207,7 @@ def execute_llm(run_args, config, cache_dir, cache_timeout=None, progress_callba
         if module_initialized:
             llm_module.exec_close()
 
-    return max_timestamp
+    return max_timestamp, stats
 
 
 def get_cached_response(run, cache_dir, cache_timeout, argument_combination):
