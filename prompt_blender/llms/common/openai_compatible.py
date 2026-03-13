@@ -9,66 +9,6 @@ import threading
 from prompt_blender.analysis.gpt_cost import analyse as get_cost
 _gui = False
 
-MODULE_UUID = 'b85680ef-8da2-4ed5-b881-ce33fe5d3ec0'
-VERSION = '1.0.0'
-RELEASE_DATE = '2025-07-01'
-
-module_info = {
-    'id': MODULE_UUID,
-    'name': 'ChatGPT',
-    'description': 'Execute OpenAI models via API.',
-    'version': VERSION,
-    'release_date': RELEASE_DATE,
-    'cache_prefix': 'openai',
-}
-
-BASE_APIS = {
-    'OpenAI': {  # Default
-        'description': 'Default API for ChatGPT models',
-        'base_url': None,  # Use the default OpenAI API base URL
-        'models': [
-            "gpt-4o-mini", 
-            "gpt-4o", 
-            "gpt-4-turbo", 
-            "gpt-3.5-turbo", 
-            "gpt-4o-mini-search-preview", 
-            "gpt-4o-search-preview",
-            "gpt-4.1-nano", 
-            "gpt-4.1-mini", 
-            "gpt-5-mini", 
-            "gpt-5-nano",
-            "gpt-5-search-api",            
-        ],
-        'default_model': 'gpt-4.1-mini',
-        'environment_var': 'OPENAI_API_KEY',
-    },
-    'DeepSeek': {
-        'description': 'DeepSeek API for web search enabled models',
-        'base_url': 'https://api.deepseek.com',
-        'models': [
-            "deepseek-chat",
-            "deepseek-reasoning",
-        ],
-        'default_model': 'deepseek-chat',
-        'environment_var': 'DEEPSEEK_API_KEY',
-    },
-    'Maritaca': {
-        'description': 'Maritaca API for web search enabled models',
-        'base_url': 'https://chat.maritaca.ai/api',
-        'models': [
-            'sabia-4',
-            'sabiazinho-4',
-            'sabia-4-small',
-            'sabiazim-4',
-            'sabiá-3.1',
-            'sabiá-3',
-        ],
-        'default_model': 'sabia-4',
-        'environment_var': 'MARITACA_API_KEY',
-    }
-}
-
-
 class OpenAICompatibleModule:
     def __init__(self, 
                  base_url=None,
@@ -121,7 +61,7 @@ class OpenAICompatibleModule:
         self.client = None
 
     def get_args(self, args=None):
-        return get_args_compatible(args=args)
+        return get_args_compatible(args=args, default_model=self.default_model)
     
     def ConfigPanel(self, parent):
         return self._ConfigPanel(parent, self.models, self.default_model)    
@@ -205,32 +145,30 @@ class OpenAICompatibleModule:
             for model in models:
                 self.model_combo.Append(model)
             self.model_combo.SetValue(default_model)
-
-
-    
-    @property
-    def args(self):
-        return {
-            'gpt_args': {
-                'n': self.n_spin.GetValue(),
-                'temperature': self.temperature_slider.GetValue() / 100,
-            },
-            'gpt_model': self.model_combo.GetValue(),
-            'gpt_json': self.json_mode_checkbox.GetValue(),
-            'web_search': self.web_search_checkbox.GetValue(),
-            'batch_mode': self.batch_mode_checkbox.GetValue(),
-        }
-    
-    @args.setter
-    def args(self, value):
-        self.model_combo.SetValue(value['gpt_model'])
-        self.n_spin.SetValue(value['gpt_args'].get('n', 1))
-        temperature = int(value['gpt_args'].get('temperature', 1) * 100)
-        self.temperature_slider.SetValue(temperature)
-        self.on_temp_scroll(None)
-        self.web_search_checkbox.SetValue(value['web_search'])
-        self.json_mode_checkbox.SetValue(value['gpt_json'])
-        self.batch_mode_checkbox.SetValue(value.get('batch_mode', False))
+        
+        @property
+        def args(self):
+            return {
+                'gpt_args': {
+                    'n': self.n_spin.GetValue(),
+                    'temperature': self.temperature_slider.GetValue() / 100,
+                },
+                'gpt_model': self.model_combo.GetValue(),
+                'gpt_json': self.json_mode_checkbox.GetValue(),
+                'web_search': self.web_search_checkbox.GetValue(),
+                'batch_mode': self.batch_mode_checkbox.GetValue(),
+            }
+        
+        @args.setter
+        def args(self, value):
+            self.model_combo.SetValue(value['gpt_model'])
+            self.n_spin.SetValue(value['gpt_args'].get('n', 1))
+            temperature = int(value['gpt_args'].get('temperature', 1) * 100)
+            self.temperature_slider.SetValue(temperature)
+            self.on_temp_scroll(None)
+            self.web_search_checkbox.SetValue(value['web_search'])
+            self.json_mode_checkbox.SetValue(value['gpt_json'])
+            self.batch_mode_checkbox.SetValue(value.get('batch_mode', False))
 
 
 
@@ -248,7 +186,7 @@ def _create_client(base_url, environment_var, gui=False):
     return OpenAI(api_key=api_key, base_url=base_url)
 
 
-def get_args_compatible(args=None):
+def get_args_compatible(args=None, default_model=None):
     if args is not None:
         allowed_args = ['n', 'temperature', 'max_tokens', 'logprobs', 'stop', 'presence_penalty', 'frequency_penalty']
         gpt_args = dict(arg.split('=') for arg in args.gpt_args if arg in allowed_args) if args.gpt_args else {}
@@ -260,14 +198,12 @@ def get_args_compatible(args=None):
         gpt_json = args.gpt_json
         web_search = args.web_search
         batch_mode = args.batch_mode
-        base_api = getattr(args, 'base_api', 'OpenAI')
     else:
         gpt_args = {}
         gpt_json = True
         web_search = False
         batch_mode = False
-        base_api = 'OpenAI'
-        gpt_model = BASE_APIS[base_api]['default_model']
+        gpt_model = default_model
 
     return {
         'gpt_args': gpt_args,
@@ -275,7 +211,6 @@ def get_args_compatible(args=None):
         'gpt_json': gpt_json,
         'web_search': web_search,
         'batch_mode': batch_mode,
-        'base_api': base_api,
     }
 
 
