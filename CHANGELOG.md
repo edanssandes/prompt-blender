@@ -5,12 +5,19 @@ All notable changes to **PromptBlender** will be documented in this file.
 **PromptBlender** is a no-code automation tool that simplifies how you test and optimize prompts for Large Language Models (LLMs). Instead of manually testing prompt variations one by one, PromptBlender automatically generates hundreds or thousands of prompt combinations, executes them against your chosen LLM, and provides comprehensive analysis of the results.
 
 - **Author**: Edans Sandes
-- **Current Version**: 0.2.3
+- **Current Version**: 0.0.0
 - **Repository**: https://github.com/edanssandes/prompt-blender
 - **License**: MIT
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+
+## [0.3.0] - 2026-06-05
+
+### Added
+
+- Added support for Gemini, DeepSeek and Maritaca
 
 ## [0.2.5] - 2026-03-05
 

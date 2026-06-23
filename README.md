@@ -27,6 +27,9 @@ Perfect for researchers, data scientists, prompt engineers, and anyone who needs
 ### 🔌 **LLMs Support**
 - **OpenAI GPT Models**: ChatGPT API integration with cost tracking
 - **Groq Cloud**: Lightning-fast inference with Llama models
+- **Gemini**: Google Gemini API integration
+- **DeepSeek**: Access DeepSeek's LLMs
+- **Maritaca**: Integration with Maritaca/Sabiá LLMs
 - **Browser-Based Agents**: Automated web interface interaction via BrowserUse
 - **Plugin System**: Easy integration with custom APIs and LLM applications
 
