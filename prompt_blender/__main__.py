@@ -4,6 +4,7 @@ import pandas as pd
 
 from prompt_blender.blend import blend_prompt
 from prompt_blender.llms import execute_llm
+from prompt_blender.llms.common.stats import ExecutionStats
 from prompt_blender.preferences import Preferences
 from prompt_blender.model import Model
 
@@ -125,7 +126,8 @@ def main():
     run_args = model.get_run_args(llm_modules)
 
     for name, run in run_args.items():
-        execute_llm.execute_llm(run, model, cache_dir, progress_callback=None, cache_timeout=cache_timeout, max_cost=max_cost)
+        timestamp, stats = execute_llm.execute_llm(run, model, cache_dir, progress_callback=None, cache_timeout=cache_timeout, max_cost=max_cost)
+        print(f"Run '{name}': {stats}")
         ret = analyse_results.analyse_results(run, model, cache_dir, analyse_functions)
         analysis_results[name] = ret
 

@@ -46,14 +46,14 @@ def load_modules_generic(paths, module_type, validation_func, info_attribute, ex
             continue
 
 
-        if not hasattr(module, info_attribute):
-            print(f'{Fore.YELLOW}[ SKIP ]{Style.RESET_ALL} {module_name:20s} - Missing module attribute {info_attribute}')
-            continue
-
         try:
             value = validation_func(module)
         except ValueError as e:
             print(f'{Fore.YELLOW}[ SKIP ]{Style.RESET_ALL} {module_name:20s} - {e}')
+            continue
+
+        if not hasattr(module, info_attribute):
+            print(f'{Fore.YELLOW}[ SKIP ]{Style.RESET_ALL} {module_name:20s} - Missing module attribute {info_attribute}')
             continue
 
         # Get info for display

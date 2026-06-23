@@ -80,7 +80,7 @@ class ExecuteDialog(wx.Dialog):
         hbox_bottom = wx.BoxSizer(wx.HORIZONTAL)
         hbox_bottom.AddStretchSpacer(1)  # Push button to the right
 
-        self.button = wx.Button(bottom_panel, label="Save")
+        self.button = wx.Button(bottom_panel, label="Apply")
         hbox_bottom.Add(self.button, flag=wx.RIGHT | wx.BOTTOM, border=10)
 
         bottom_panel.SetSizer(hbox_bottom)
