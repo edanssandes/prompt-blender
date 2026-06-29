@@ -22,7 +22,8 @@ module = OpenAICompatibleModule(
         "gpt-4.1-mini", 
         "gpt-5-mini", 
         "gpt-5-nano",
-        "gpt-5-search-api",            
+        "gpt-5-search-api",
+        "gpt-5.4-mini",          
     ],
     default_model='gpt-4.1-mini',
     environment_var='OPENAI_API_KEY'
