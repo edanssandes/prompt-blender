@@ -13,6 +13,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [0.3.1] - 2026-06-29
+
+### Fixed
+
+- Fixed drag-and-drop of variables into the prompt editor misplacing text near multi-byte characters (e.g. bullet •)
+
 ## [0.3.0] - 2026-06-05
 
 ### Added
