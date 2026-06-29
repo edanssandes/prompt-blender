@@ -212,29 +212,16 @@ class PromptEditorDropTarget(wx.TextDropTarget):
         if not self.prompt_editor.IsEditable():
             return False
 
-        drop_pos = self._get_char_position(x, y)
-        self.prompt_editor.InsertText(drop_pos, dropped_text)
-        new_char_pos = drop_pos + len(dropped_text)
-        byte_pos = len(self.prompt_editor.GetText()[:new_char_pos].encode('utf-8'))
-        self.prompt_editor.SetCurrentPos(byte_pos)
+        # StyledTextCtrl positions are byte offsets; InsertText, SetCurrentPos
+        # and SetSelection all expect byte positions, so work entirely in bytes.
+        byte_pos = self.prompt_editor.PositionFromPoint(wx.Point(x, y))
+        if byte_pos == -1:
+            byte_pos = self.prompt_editor.GetCurrentPos()
+
+        self.prompt_editor.InsertText(byte_pos, dropped_text)
+        end_pos = byte_pos + len(dropped_text.encode('utf-8'))
+        self.prompt_editor.SetSelection(end_pos, end_pos)
         self.prompt_editor.SetFocus()
 
-        # Unselected text to avoid confusion
-        self.prompt_editor.SetSelection(byte_pos, byte_pos)
-        
-        return False        
-    
-    def _get_char_position(self, x, y):
-        """Convert screen coordinates to character position in text"""
-        byte_pos = self.prompt_editor.PositionFromPoint(wx.Point(x, y))
-
-        if byte_pos == -1:
-            return self.prompt_editor.GetCurrentPos()
-
-        # Convert byte position to character position
-        text = self.prompt_editor.GetText()
-        text_bytes = text.encode('utf-8')
-        char_pos = len(text_bytes[:byte_pos].decode('utf-8'))
-
-        return char_pos
+        return False
        
