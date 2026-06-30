@@ -7,6 +7,19 @@ import zipfile
 import json
 
 
+def _ordered_columns(columns):
+    """Order columns deterministically: parameters (_run, _timestamp, etc.) first,
+    then inputs in the user's original order, then outputs in the order they came
+    from the LLM response. Parameters and inputs are deterministic; outputs keep
+    their original LLM response order.
+    """
+    columns = list(columns)
+    inputs = [c for c in columns if c.startswith('input_')]
+    params = [c for c in columns if c.startswith('_') and c not in inputs]
+    outputs = [c for c in columns if c not in params and c not in inputs]
+    return params + inputs + outputs
+
+
 def _merge_analysis_results(config, analysis_results, run_args):
     # Merge all analysis results into a single dictionary. Parameter "_run" will be added to each result
     merged_analysis_results = {}
@@ -49,6 +62,7 @@ def _save_result_file(filename, output_dir, merged_analysis_results, data, run_a
                 for module_name, results in merged_analysis_results.items():
                     if results:
                         df = pd.DataFrame(results)
+                        df = df[_ordered_columns(df.columns)]
                         df.to_excel(writer, sheet_name=module_name, index=False)
 
         byteio.seek(0)

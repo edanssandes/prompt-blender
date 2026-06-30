@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.3.1] - 2026-06-29
 
+### Changed
+
+- Made result.xlsx column order deterministic: parameters first, then inputs (in the user's original order), then outputs (in the LLM response order)
+
 ### Fixed
 
 - Fixed drag-and-drop of variables into the prompt editor misplacing text near multi-byte characters (e.g. bullet •)
