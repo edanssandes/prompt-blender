@@ -4,5 +4,6 @@ from .ProgressDialog import ProgressDialog
 from .RunConfigurationsDialog import RunConfigurationsDialog
 from .InputListDialog import InputListDialog
 from .RagEmbeddingDialog import RagEmbeddingDialog
+from .JsonWizardDialog import JsonWizardDialog
 
-__all__ = ['ExecuteDialog', 'PreferencesDialog', 'ProgressDialog', 'RunConfigurationsDialog', 'InputListDialog', 'RagEmbeddingDialog']
+__all__ = ['ExecuteDialog', 'PreferencesDialog', 'ProgressDialog', 'RunConfigurationsDialog', 'InputListDialog', 'RagEmbeddingDialog', 'JsonWizardDialog']

@@ -2,6 +2,7 @@ import wx
 import wx.stc
 import json
 from prompt_blender.gui import placeholder_colors
+from prompt_blender.gui.dialogs.JsonWizardDialog import JsonWizardDialog, json_to_fields
 
 
 class PromptPage(wx.Panel):
@@ -46,6 +47,10 @@ class PromptPage(wx.Panel):
 
         self.prompt_editor.Bind(wx.stc.EVT_STC_CHANGE, on_prompt_change)
 
+        # Custom right-click context menu (with JSON wizard options)
+        self.prompt_editor.UsePopUp(wx.stc.STC_POPUP_NEVER)
+        self.prompt_editor.Bind(wx.EVT_CONTEXT_MENU, self._on_context_menu)
+
         # Set up layout
         sizer.Add(self.prompt_editor, 1, wx.EXPAND)
         self.SetSizer(sizer)
@@ -56,6 +61,86 @@ class PromptPage(wx.Panel):
         """Called after some time of no text changes to update prompt and highlight. This reduce flickering. """
         if self.view_mode == 0:
             self.data.set_prompt(self.prompt_name, self.prompt_editor.GetText())
+            self.highlight_prompt()
+        if self.on_change:
+            self.on_change()
+
+    # --- Context menu / JSON wizard -------------------------------------
+    ID_JSON_EDIT = wx.NewIdRef()
+    ID_JSON_INSERT = wx.NewIdRef()
+
+    def _on_context_menu(self, event):
+        editor = self.prompt_editor
+        editable = editor.IsEditable()
+        has_sel = not editor.GetSelectionEmpty()
+
+        menu = wx.Menu()
+
+        # Reuse the standard editor actions, then append our new JSON items.
+        items = [
+            (wx.ID_UNDO, "Undo", lambda e: editor.Undo(), editable and editor.CanUndo()),
+            (wx.ID_REDO, "Redo", lambda e: editor.Redo(), editable and editor.CanRedo()),
+            (None, None, None, None),  # separator
+            (wx.ID_CUT, "Cut", lambda e: editor.Cut(), editable and has_sel),
+            (wx.ID_COPY, "Copy", lambda e: editor.Copy(), has_sel),
+            (wx.ID_PASTE, "Paste", lambda e: editor.Paste(), editable and editor.CanPaste()),
+            (wx.ID_DELETE, "Delete", lambda e: editor.Clear(), editable and has_sel),   
+            (None, None, None, None),  # separator
+            (wx.ID_SELECTALL, "Select All", lambda e: editor.SelectAll(), True),
+            (None, None, None, None),  # separator
+            (self.ID_JSON_EDIT, "Edit JSON as Table...", self._on_edit_json, editable and has_sel),
+            (self.ID_JSON_INSERT, "Insert JSON as Table...", self._on_insert_json, editable),
+        ]
+        for item_id, label, handler, enabled in items:
+            if item_id is None:
+                menu.AppendSeparator()
+                continue
+            item = menu.Append(item_id, label)
+            item.Enable(enabled)
+            menu.Bind(wx.EVT_MENU, handler, item)
+
+        editor.PopupMenu(menu)
+        menu.Destroy()
+
+    def _on_edit_json(self, event):
+        editor = self.prompt_editor
+        selected = editor.GetSelectedText()
+        try:
+            fields, multiple = json_to_fields(selected)
+        except ValueError as exc:
+            wx.MessageBox(
+                f"The selected text could not be parsed as a JSON object.\n\n{exc}",
+                "Edit JSON as Table", wx.OK | wx.ICON_WARNING)
+            return
+
+        dialog = JsonWizardDialog(self, fields=fields, multiple=multiple,
+                                  title="Edit JSON as Table")
+        try:
+            if dialog.ShowModal() == wx.ID_OK:
+                if wx.MessageBox("Replace the selected text with the new JSON?",
+                                 "Replace Text",
+                                 wx.YES_NO | wx.ICON_QUESTION) != wx.YES:
+                    return
+                editor.ReplaceSelection(dialog.GetJson())
+                self._commit_text_change()
+        finally:
+            dialog.Destroy()
+
+    def _on_insert_json(self, event):
+        editor = self.prompt_editor
+        dialog = JsonWizardDialog(self, title="Insert JSON as Table")
+        try:
+            if dialog.ShowModal() == wx.ID_OK:
+                editor.ReplaceSelection(dialog.GetJson())
+                self._commit_text_change()
+        finally:
+            dialog.Destroy()
+
+    def _commit_text_change(self):
+        """Persist editor content after a programmatic edit and refresh highlight."""
+        if self.view_mode == 0:
+            self.data.set_prompt(self.prompt_name, self.prompt_editor.GetText())
+            self.highlighted_text = ""
             self.highlight_prompt()
         if self.on_change:
             self.on_change()
