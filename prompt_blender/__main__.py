@@ -27,6 +27,7 @@ parser.add_argument('--overwrite', action='store_true', help='Overwrite existing
 parser.add_argument('--dump-results', type=str, help='Path to the result file to dump')
 parser.add_argument('--run', action='store_true', help='Run now (non-GUI mode)')
 parser.add_argument('--cache-dir', type=str, help='Path to the cache directory. Overrides preferences setting.')
+parser.add_argument('--num-workers', type=int, default=1, help='Number of maximum parallel requests to run (default: 1)')
 
 def merge_csv_parameters(config_data, merge_params):
     """
@@ -121,12 +122,13 @@ def main():
 
     analysis_results = {}
     max_cost = 0  # Unlimited
+    num_workers = args.num_workers
     cache_timeout = None
 
     run_args = model.get_run_args(llm_modules)
 
     for name, run in run_args.items():
-        timestamp, stats = execute_llm.execute_llm(run, model, cache_dir, progress_callback=None, cache_timeout=cache_timeout, max_cost=max_cost)
+        timestamp, stats = execute_llm.execute_llm(run, model, cache_dir, progress_callback=None, cache_timeout=cache_timeout, max_cost=max_cost, num_workers=num_workers)
         print(f"Run '{name}': {stats}")
         ret = analyse_results.analyse_results(run, model, cache_dir, analyse_functions)
         analysis_results[name] = ret

@@ -12,6 +12,7 @@ module_info = {
     'version': '1.0.0',
     'release_date': '2025-07-01',
     'cache_prefix': 'dummy',
+    'thread_safe': True,
 }
 
 DEFAULT_STUB_MESSAGE = "Stub response from the dummy model."
@@ -48,7 +49,7 @@ def exec(prompt, args=None, stub_response=None):
     }
     print("Executando o modelo dummy...")
 
-    time.sleep(0.15)
+    time.sleep(0.14 + random.random() * 0.2)  # Simulate some processing time
 
     return {
         "response": full_stub_response,

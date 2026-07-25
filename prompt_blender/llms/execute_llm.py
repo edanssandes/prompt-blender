@@ -4,6 +4,9 @@ import time
 import importlib.util
 import copy
 import traceback
+import threading
+from collections import deque
+from concurrent.futures import ThreadPoolExecutor, wait, FIRST_COMPLETED
 
 from colorama import Fore, Style
 from prompt_blender import info
@@ -113,9 +116,13 @@ def expire_file(cache_timeout, file):
             os.remove(file)
 
 
-def execute_llm(run_args, config, cache_dir, cache_timeout=None, progress_callback=None, max_cost=0, gui=False):
+def execute_llm(run_args, config, cache_dir, cache_timeout=None, progress_callback=None, max_cost=0, gui=False, num_workers=1):
     """
     Executes the LLM (Language Model) with the given arguments and output files.
+
+    Args:
+        num_workers (int): Number of combinations to process in parallel within
+            this run/model. 1 (default) runs sequentially.
     """
     
     module_args = run_args.get('args', {})
@@ -131,63 +138,161 @@ def execute_llm(run_args, config, cache_dir, cache_timeout=None, progress_callba
 
     total_cost = 0
 
-    def callback(i, num_combinations):
-        if progress_callback:
-            over_budget = False
-
-            if i == num_combinations:
-                description = 'Finishing up...'
-            else:
-                description = f"Execution Cost: ${total_cost:.2f}/{max_cost:.2f}"
-
-                if max_cost:
-                    if total_cost >= max_cost:
-                        # Unicode error for overbudget
-                        description += "❌ (over budget)"
-                        over_budget = True
-                    elif total_cost > max_cost*0.90:
-                        # Unicode warning
-                        description += "⚠️"
-
-            keep_running = progress_callback(i, num_combinations, description=description)
-            x = keep_running and (not over_budget)
-
-            if total_cost >= max_cost:
-                print("Execution cost exceeded the budget. Stopping execution.")
-                raise RuntimeError(f"Execution cost exceeded the budget: ${total_cost:.2f} > ${max_cost:.2f}")
-
-            return x
-        else:
-            return True
-
-    # latest timestamp. This will be used to determine the file name of the output file.
-    # If we are reusing all the cached files, the latest timestamp will be the same across all the runs.
-    max_timestamp = ''
-    module_initialized = False
-
-    stats = ExecutionStats()
-
-    # All combinations must sleep at most 2 seconds in total. So, for N combinations:
-    # the maximum sleep time per combination is 2 seconds / N
+    # Sleep budget spread across all combinations so the GUI animation is visible
+    # even for runs that are fully cached (same formula, shared by both paths).
     sleep_time = min(max(2 / config.get_num_combinations(), 0.0001), 0.01)
 
-    try:
-        for argument_combination in config.get_parameter_combinations(callback):
-            output = get_cached_response(run_args, cache_dir, cache_timeout, argument_combination)
-            if output is None:
-                if not module_initialized:
-                    llm_module.exec_init(gui=gui)
-                    module_initialized = True
-                output = _execute_inner(run_args, cache_dir, argument_combination)
-                if output is not None:
-                    stats.executed += 1
-            else:
-                stats.cached += 1
-            time.sleep(sleep_time)  # This allows the animation to be shown in the GUI for executions that are too fast (e.g. full cache hits)
+    # ── Single progress-reporting helper (used by both sequential and parallel) ──
 
+    def build_description(completed, total):
+        if completed >= total:
+            return 'Finishing up...'
+        desc = (f"Execution Cost: ${total_cost:.2f}/{max_cost:.2f}"
+                if max_cost else f"Execution Cost: ${total_cost:.2f}")
+        if max_cost:
+            if total_cost >= max_cost:
+                desc += "❌ (over budget)"
+            elif total_cost > max_cost * 0.90:
+                desc += "⚠️"
+        return desc
+
+    def report_progress(completed, total):
+        """Update the progress bar and return keep_running.
+        Raises RuntimeError when the cost budget is exceeded (always, even
+        when there is no progress_callback)."""
+        if max_cost and total_cost >= max_cost:
+            print("Execution cost exceeded the budget. Stopping execution.")
+            raise RuntimeError(
+                f"Execution cost exceeded the budget: ${total_cost:.2f} > ${max_cost:.2f}")
+        if not progress_callback:
+            return True
+        keep_running = progress_callback(completed, total,
+                                         description=build_description(completed, total))
+        return keep_running
+
+    # ── Shared state ──
+
+    # latest timestamp across all processed combinations
+    max_timestamp = ''
+    module_initialized = False
+    stats = ExecutionStats()
+
+    init_lock = threading.Lock()   # guards lazy exec_init
+    state_lock = threading.Lock()  # guards max_timestamp / total_cost / stats
+
+    def get_result_key(argument_combination):
+        return argument_combination.get_result_file(run_args['run_hash'])
+
+    def ensure_module_initialized():
+        nonlocal module_initialized
+        with init_lock:
+            if not module_initialized:
+                llm_module.exec_init(gui=gui)
+                module_initialized = True
+
+    def process_combination(argument_combination):
+        """Resolve a single combination (cache hit or LLM call).
+
+        Parallel scheduling guarantees there is never more than one in-flight
+        worker for the same result key.
+        """
+        output = get_cached_response(run_args, cache_dir, cache_timeout, argument_combination)
+        cached = output is not None
+        if not cached:
+            ensure_module_initialized()
+            output = _execute_inner(run_args, cache_dir, argument_combination)
+        time.sleep(sleep_time)
+        return output, cached
+
+    def record_output(output, cached):
+        nonlocal max_timestamp, total_cost
+        with state_lock:
+            if cached:
+                stats.cached += 1
+            elif output is not None:
+                stats.executed += 1
             if output:
                 max_timestamp = max(max_timestamp, output['timestamp'])
                 total_cost += output['cost'] if output.get('cost', None) is not None else 0
+
+    def run_parallel():
+        total = config.get_num_combinations()
+        combo_iter = iter(config.get_parameter_combinations())
+        completed = 0
+
+        if not report_progress(0, total):
+            return
+
+        executor = ThreadPoolExecutor(max_workers=num_workers)
+        pending_futures = {}
+        in_flight_keys = set()
+        queued_by_key = {}
+        source_exhausted = False
+
+        def submit_combo(argument_combination):
+            key = get_result_key(argument_combination)
+            future = executor.submit(process_combination, argument_combination)
+            pending_futures[future] = key
+            in_flight_keys.add(key)
+
+        def enqueue_or_submit(argument_combination):
+            key = get_result_key(argument_combination)
+            if key in in_flight_keys:
+                q = queued_by_key.get(key)
+                if q is None:
+                    q = deque()
+                    queued_by_key[key] = q
+                q.append(argument_combination)
+            else:
+                submit_combo(argument_combination)
+
+        def fill_available_slots():
+            nonlocal source_exhausted
+            while len(pending_futures) < num_workers and not source_exhausted:
+                combo = next(combo_iter, None)
+                if combo is None:
+                    source_exhausted = True
+                    break
+                enqueue_or_submit(combo)
+
+        try:
+            fill_available_slots()
+
+            while pending_futures:
+                done, _ = wait(list(pending_futures.keys()), return_when=FIRST_COMPLETED)
+
+                for fut in done:
+                    key = pending_futures.pop(fut)
+                    in_flight_keys.discard(key)
+                    output, cached = fut.result()  # re-raises any worker exception
+                    record_output(output, cached)
+                    completed += 1
+
+                    # Release one queued sibling for this key, if any.
+                    key_queue = queued_by_key.get(key)
+                    if key_queue:
+                        next_combo = key_queue.popleft()
+                        if not key_queue:
+                            queued_by_key.pop(key, None)
+                        submit_combo(next_combo)
+
+                if not report_progress(completed, total):
+                    break
+
+                fill_available_slots()
+        finally:
+            # Cancel queued (not-yet-started) tasks and wait for running ones.
+            for fut in pending_futures:
+                fut.cancel()
+            executor.shutdown(wait=True)
+
+    try:
+        if llm_module.module_info.get('thread_safe', False) and num_workers > 1:
+            run_parallel()
+        else:
+            for argument_combination in config.get_parameter_combinations(report_progress):
+                output, cached = process_combination(argument_combination)
+                record_output(output, cached)
 
         if progress_callback:
             r = progress_callback(0, 0, description="Processing delayed executions...")
@@ -256,6 +361,20 @@ def get_cached_response(run, cache_dir, cache_timeout, argument_combination):
 
 
 
+def _atomic_write_json(path, data):
+    """Write JSON to ``path`` atomically.
+
+    The data is first written to a per-thread temporary file and then moved
+    into place with ``os.replace`` (atomic on the same filesystem). This avoids
+    readers ever seeing a partially written file when combinations are executed
+    in parallel.
+    """
+    tmp_path = f"{path}.{os.getpid()}.{threading.get_ident()}.tmp"
+    with open(tmp_path, 'w', encoding='utf-8') as file:
+        json.dump(data, file)
+    os.replace(tmp_path, path)
+
+
 def _execute_inner(run, cache_dir, argument_combination):
     llm_module = run['llm_module']
     run_hash = run['run_hash']
@@ -297,9 +416,8 @@ def _execute_inner(run, cache_dir, argument_combination):
         }
 
     if 'delayed' in response:
-        with open(delayed_file, 'w', encoding='utf-8') as file:
-            output['delayed'] = response['delayed']
-            json.dump(output, file)
+        output['delayed'] = response['delayed']
+        _atomic_write_json(delayed_file, output)
 
         return None
     
@@ -309,8 +427,7 @@ def _execute_inner(run, cache_dir, argument_combination):
     output['cost'] = response.get('cost', 0)
     output['elapsed_time'] = t1 - t0
 
-    with open(result_file, 'w', encoding='utf-8') as file:
-        json.dump(output, file)
+    _atomic_write_json(result_file, output)
 
     return output
 

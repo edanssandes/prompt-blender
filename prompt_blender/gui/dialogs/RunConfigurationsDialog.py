@@ -65,6 +65,20 @@ class RunConfigurationsDialog(wx.Dialog):
         # --- Bottom panel for "Run All" button ---
         self.bottom_panel = wx.Panel(panel)
         hbox_bottom = wx.BoxSizer(wx.HORIZONTAL)
+
+        # Parallel requests control (per run, same model)
+        parallel_label = wx.StaticText(self.bottom_panel, label="Max parallel requests:")
+        hbox_bottom.Add(parallel_label, flag=wx.ALIGN_CENTER_VERTICAL | wx.LEFT | wx.BOTTOM, border=10)
+
+        self.parallel_spin = wx.SpinCtrl(
+            self.bottom_panel, value="1", min=1, max=8
+        )
+        self.parallel_spin.SetToolTip(
+            "Number of requests to run in parallel within the same run/model. "
+            "1 means sequential execution."
+        )
+        hbox_bottom.Add(self.parallel_spin, flag=wx.ALIGN_CENTER_VERTICAL | wx.LEFT | wx.BOTTOM, border=5)
+
         hbox_bottom.AddStretchSpacer(1)  # Push button to the right
 
         self.run_all_button = wx.Button(self.bottom_panel, label="Run All")
@@ -228,6 +242,10 @@ class RunConfigurationsDialog(wx.Dialog):
 
     def run_all_configurations(self, event):
         self.EndModal(wx.ID_OK)
+
+    def get_num_workers(self):
+        """Return the number of parallel requests configured (>= 1)."""
+        return self.parallel_spin.GetValue()
 
     def on_edit_double_click(self, event):
         self.edit_configuration(event)

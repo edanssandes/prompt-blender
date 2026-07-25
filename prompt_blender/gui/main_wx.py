@@ -40,6 +40,7 @@ class MainFrame(wx.Frame):
             self.data = Model.create_from_example(default_example)
 
         self.data.add_on_modified_callback(self.update_project_state)
+        self.num_workers = 1
         self.selected_parameter = None
 
         self.preferences = Preferences.load_from_file()
@@ -1032,6 +1033,7 @@ class MainFrame(wx.Frame):
                     if not self.save_project():
                         return  # Save was cancelled
 
+            self.num_workers = self.execute_dialog.get_num_workers()
             self.progress_dialog.run_task(self.task_all)
 
     #def run_prompt(self):
@@ -1188,7 +1190,7 @@ class MainFrame(wx.Frame):
             for name, run in run_args.items():
 
                 max_cost = self.preferences.max_cost
-                timestamp, stats = execute_llm.execute_llm(run, self.data, output_dir, progress_callback=self.progress_dialog.update_progress, cache_timeout=cache_timeout, max_cost=max_cost, gui=True)
+                timestamp, stats = execute_llm.execute_llm(run, self.data, output_dir, progress_callback=self.progress_dialog.update_progress, cache_timeout=cache_timeout, max_cost=max_cost, gui=True, num_workers=self.num_workers)
                 max_timestamp = max(max_timestamp, timestamp)
                 total_stats += stats
 

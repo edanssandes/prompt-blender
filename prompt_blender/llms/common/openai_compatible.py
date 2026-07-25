@@ -35,10 +35,14 @@ class OpenAICompatibleModule:
                 'version': version or '',
                 'release_date': release_date,
                 'cache_prefix': cache_prefix,
+                'thread_safe': True,
             }
 
         self._gui = False
         self.client = None
+        # Guards lazy client creation so parallel executions create the client
+        # (and any API-key prompt) exactly once.
+        self._client_lock = threading.Lock()
 
     @property
     def module_info(self):
@@ -50,7 +54,9 @@ class OpenAICompatibleModule:
 
     def exec(self, prompt, gpt_model, gpt_args, gpt_json, batch_mode, web_search):
         if self.client is None:
-            self.client = _create_client(self.base_url, self.environment_var, gui=self._gui)
+            with self._client_lock:
+                if self.client is None:
+                    self.client = _create_client(self.base_url, self.environment_var, gui=self._gui)
 
         return _exec_compatible(prompt, gpt_model, gpt_args, gpt_json, batch_mode, web_search, client=self.client)
 
