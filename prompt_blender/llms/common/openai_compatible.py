@@ -7,7 +7,6 @@ import wx
 import threading
 
 from prompt_blender.analysis.gpt_cost import analyse as get_cost
-_gui = False
 
 class OpenAICompatibleModule:
     def __init__(self, 
@@ -52,16 +51,18 @@ class OpenAICompatibleModule:
         self.client = None
         self._gui = gui
 
-    def exec(self, prompt, gpt_model, gpt_args, gpt_json, batch_mode, web_search):
+    def _get_client(self):
         if self.client is None:
             with self._client_lock:
                 if self.client is None:
                     self.client = _create_client(self.base_url, self.environment_var, gui=self._gui)
+        return self.client
 
-        return _exec_compatible(prompt, gpt_model, gpt_args, gpt_json, batch_mode, web_search, client=self.client)
+    def exec(self, prompt, gpt_model, gpt_args, gpt_json, batch_mode, web_search):
+        return _exec_compatible(prompt, gpt_model, gpt_args, gpt_json, batch_mode, web_search, client=self._get_client())
 
     def exec_delayed(self, delayed_content: dict):
-        return exec_delayed_compatible(delayed_content, self.client)
+        return exec_delayed_compatible(delayed_content, self._get_client(), self._gui)
 
     def exec_close(self):
         self.client = None
@@ -345,7 +346,7 @@ def ask_api_key(env_var='OPENAI_API_KEY'):
     return result[0] if result else ""
 
 
-def exec_delayed_compatible(delayed_content: dict, client: OpenAI):
+def exec_delayed_compatible(delayed_content: dict, client: OpenAI, gui=False):
     jsonl_file_content = []
     batch_ids = set()
     #return
@@ -449,7 +450,7 @@ def exec_delayed_compatible(delayed_content: dict, client: OpenAI):
 
 
     if jsonl_file_content:
-        show_batch_warning(jsonl_file_content)
+        show_batch_warning(jsonl_file_content, gui=gui)
 
         
         # Create a JSONL file-like object
@@ -481,9 +482,9 @@ def exec_delayed_compatible(delayed_content: dict, client: OpenAI):
 
 
 
-def show_batch_warning(jsonl_file_content):
+def show_batch_warning(jsonl_file_content, gui=False):
     confirmed = False
-    if not _gui:
+    if not gui:
         # Show confirmation input
         print(f"Batch processing is experimental and the cost of the batch cannot be tracked.")
         print(f"Do you want to continue? (y/n): ", end='')

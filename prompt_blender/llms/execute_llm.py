@@ -453,7 +453,8 @@ def _execute_delayed(run_args, config, cache_dir, llm_module, initialized, gui):
 
     if not initialized:
         llm_module.exec_init(gui=gui)
-        initialized = True
+        # FIXME: initialized stays False here - it's a local variable
+        # The actual initialization happens lazily in exec_delayed
 
     new_delayed_data = llm_module.exec_delayed(delayed_params)
 
