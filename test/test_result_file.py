@@ -91,14 +91,14 @@ class TestResultFile:
         assert len(gpt_cost_results) == 3  # 2 from run1 + 1 from run2
         
         # Check that _run field is added
-        run_names = [result["_run"] for result in gpt_cost_results]
+        run_names = [result["Run Name"] for result in gpt_cost_results]
         assert "run1" in run_names
         assert "run2" in run_names
         
         # Check response_analysis results
         response_results = merged["response_analysis"]
         assert len(response_results) == 2  # Only from run1
-        assert all(result["_run"] == "run1" for result in response_results)
+        assert all(result["Run Name"] == "run1" for result in response_results)
         
         # Check prompts
         prompts = merged["prompts"]

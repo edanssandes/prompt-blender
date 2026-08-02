@@ -47,7 +47,12 @@ class FakeModule:
         time.sleep(self.delay)
         with self._lock:
             self._active -= 1
-        return {"response": f"echo:{prompt}", "cost": 0.01}
+        return {
+            "response": f"echo:{prompt}", 
+            "usage": {
+                "cost": 0.01
+            }
+        }
 
     def exec_close(self):
         with self._lock:
@@ -182,7 +187,7 @@ def test_parallel_cancellation_stops_early(tmp_path):
     calls = {"n": 0}
     lock = threading.Lock()
 
-    def progress_callback(current, total, description=""):
+    def progress_callback(current, total, description="", stats=None):
         with lock:
             calls["n"] += 1
             # Cancel after the first progress report.

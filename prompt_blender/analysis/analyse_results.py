@@ -47,7 +47,7 @@ def analyse_results(run, config, output_dir, analyse_functions):
                 output = json.load(file)
 
                 elapsed_time += output.get('elapsed_time', 0)
-                total_cost += output.get('cost', 0)
+                total_cost += output.get('usage', {}).get('cost', output.get('cost', 0))
 
             result_found = True
 
@@ -78,9 +78,10 @@ def analyse_results(run, config, output_dir, analyse_functions):
                 output = json.load(file)
 
                 response = output['response']
+                usage = output.get('usage', {})
                 timestamp = output['timestamp']
 
-                r = analyse_function['analyse'](response, timestamp)
+                r = analyse_function['analyse'](response, timestamp=timestamp, usage=usage)
                 if r is not None:
                     if not isinstance(r, list):
                         r = [r]

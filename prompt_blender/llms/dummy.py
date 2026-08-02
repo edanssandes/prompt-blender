@@ -53,7 +53,9 @@ def exec(prompt, args=None, stub_response=None):
 
     return {
         "response": full_stub_response,
-        "cost": 0.001 + random.random() * 0.002
+        "usage": {
+            'cost': 0.001 + random.random() * 0.002
+        }
     }
 
 def exec_close():

@@ -3,10 +3,9 @@ import os
 import re
 import io
 import json
+from numbers import Number
 import wx
 import threading
-
-from prompt_blender.analysis.gpt_cost import analyse as get_cost
 
 class OpenAICompatibleModule:
     def __init__(self, 
@@ -14,6 +13,7 @@ class OpenAICompatibleModule:
                  models=None,
                  default_model=None,
                  environment_var=None,
+                 costs=None,
                  id=None,
                  name=None,
                  description=None,
@@ -24,6 +24,7 @@ class OpenAICompatibleModule:
         self.models = models
         self.default_model = default_model
         self.environment_var = environment_var
+        self.costs = costs
 
         self._module_info = None
         if id is not None:
@@ -59,10 +60,19 @@ class OpenAICompatibleModule:
         return self.client
 
     def exec(self, prompt, gpt_model, gpt_args, gpt_json, batch_mode, web_search):
-        return _exec_compatible(prompt, gpt_model, gpt_args, gpt_json, batch_mode, web_search, client=self._get_client())
+        return _exec_compatible(
+            prompt,
+            gpt_model,
+            gpt_args,
+            gpt_json,
+            batch_mode,
+            web_search,
+            client=self._get_client(),
+            costs=self.costs,
+        )
 
     def exec_delayed(self, delayed_content: dict):
-        return exec_delayed_compatible(delayed_content, self._get_client(), self._gui)
+        return exec_delayed_compatible(delayed_content, self._get_client(), self._gui, costs=self.costs)
 
     def exec_close(self):
         self.client = None
@@ -221,7 +231,7 @@ def get_args_compatible(args=None, default_model=None):
     }
 
 
-def _exec_compatible(prompt, gpt_model, gpt_args, gpt_json, batch_mode, web_search, client : OpenAI = None):
+def _exec_compatible(prompt, gpt_model, gpt_args, gpt_json, batch_mode, web_search, client: OpenAI = None, costs=None):
 
     # extract "[data:image/\w+?;base64,{base64 data}]" from the prompt. Convert each occurence to [img1] [img2]
     images = []
@@ -317,12 +327,113 @@ def _exec_compatible(prompt, gpt_model, gpt_args, gpt_json, batch_mode, web_sear
         )
     
     response_dump = response.to_dict()
-    cost = get_cost(response_dump)
+    usage = _resolve_usage(response_dump, costs, prompt=prompt)
 
     return {
         'response': response_dump,
-        'cost': cost['cost in'] + cost['cost out'],
+        'usage': usage,
     }
+
+
+def _extract_token_usage(response):
+    usage = response.get('usage') or {}
+
+    if 'prompt_tokens' in usage and 'completion_tokens' in usage:
+        return usage['prompt_tokens'], usage['completion_tokens']
+
+    if 'input_tokens' in usage and 'output_tokens' in usage:
+        return usage['input_tokens'], usage['output_tokens']
+
+    return 0, 0
+
+
+def _normalize_cost_result(response, cost_result):
+    tokens_in, tokens_out = _extract_token_usage(response)
+
+    if cost_result is None:
+        return {
+            'tokens in': tokens_in,
+            'tokens out': tokens_out,
+            'cost in': 0.0,
+            'cost out': 0.0,
+        }
+
+    if isinstance(cost_result, Number):
+        return {
+            'tokens in': tokens_in,
+            'tokens out': tokens_out,
+            'cost in': float(cost_result),
+            'cost out': 0.0,
+        }
+
+    if isinstance(cost_result, dict):
+        return {
+            'tokens in': cost_result.get('tokens in', tokens_in),
+            'tokens out': cost_result.get('tokens out', tokens_out),
+            'cost in': float(cost_result.get('cost in', 0.0)),
+            'cost out': float(cost_result.get('cost out', 0.0)),
+        }
+
+    raise TypeError('Invalid cost result. Expected dict, number, or None.')
+
+
+def _model_price_from_dict(model_name, costs):
+    if model_name in costs:
+        return costs[model_name]
+
+    model_without_date = re.sub(r'-\d{4}-\d{2}-\d{2}$', '', model_name)
+    if model_without_date in costs:
+        return costs[model_without_date]
+
+    for key, value in costs.items():
+        if key.endswith('*') and model_name.startswith(key[:-1]):
+            return value
+
+    return None
+
+
+def _cost_from_dict(response, costs):
+    if not isinstance(costs, dict):
+        raise TypeError('costs must be a dict when using dict-based pricing.')
+
+    tokens_in, tokens_out = _extract_token_usage(response)
+    model_name = response.get('model', '')
+    price = _model_price_from_dict(model_name, costs)
+
+    if price is None:
+        return {
+            'tokens in': tokens_in,
+            'tokens out': tokens_out,
+            'cost in': 0.0,
+            'cost out': 0.0,
+        }
+
+    cost_in_per_million = float(price.get('input', 0.0))
+    cost_out_per_million = float(price.get('output', 0.0))
+
+    return {
+        'tokens in': tokens_in,
+        'tokens out': tokens_out,
+        'cost in': tokens_in / 1000000 * cost_in_per_million,
+        'cost out': tokens_out / 1000000 * cost_out_per_million,
+    }
+
+
+def _resolve_usage(response, costs, prompt=None, discount=0.0):
+    if callable(costs):
+        usage = _normalize_cost_result(response, costs(response))
+    elif isinstance(costs, dict):
+        usage = _normalize_cost_result(response, _cost_from_dict(response, costs))
+    elif costs is None:
+        usage = _normalize_cost_result(response, None)
+    else:
+        raise TypeError('Invalid costs configuration. Expected dict, callable, or None.')
+
+    discount_value = float(discount or 0.0)
+    usage['discount'] = discount_value
+    usage['cost'] = (usage['cost in'] + usage['cost out']) * (1.0 - discount_value)
+
+    return usage
 
 def ask_api_key(env_var='OPENAI_API_KEY'):
     # This function can be called from any thread
@@ -346,7 +457,7 @@ def ask_api_key(env_var='OPENAI_API_KEY'):
     return result[0] if result else ""
 
 
-def exec_delayed_compatible(delayed_content: dict, client: OpenAI, gui=False):
+def exec_delayed_compatible(delayed_content: dict, client: OpenAI, gui=False, costs=None):
     jsonl_file_content = []
     batch_ids = set()
     #return
@@ -393,15 +504,14 @@ def exec_delayed_compatible(delayed_content: dict, client: OpenAI, gui=False):
                 response_dump = json.loads(line)
                 response = response_dump['response']['body']
                 custom_id = response_dump['custom_id']
-                cost = get_cost(response)
+                usage = _resolve_usage(response, costs, discount=0.5)  # 50% discount for batch processing
                 print("FOUND line in jsonl_data:", custom_id)
                 if custom_id.startswith("9a5"):
-                    print("DEBUG", cost, response_dump)
-
+                    print("DEBUG", usage, response_dump)
 
                 new_delayed_content[custom_id] = {
                     'response': response,
-                    'cost': (cost['cost in'] + cost['cost out'])*0.5,  # 50% discount for batch processing
+                    'usage': usage,
                     'batch_id': batch_id,
                 }
 

@@ -28,8 +28,12 @@ def _merge_analysis_results(config, analysis_results, run_args):
             if module_name not in merged_analysis_results:
                 merged_analysis_results[module_name] = []
             for result in results:
-                result['_run'] = run_name
-                merged_analysis_results[module_name].append(result)
+                merged_analysis_results[module_name].append(
+                    {
+                        'Run Name': run_name,
+                        'Module Name': run_args[run_name]['module_name']
+                    } | result
+                )
 
     # Include all prompts
     merged_analysis_results['prompts'] = []

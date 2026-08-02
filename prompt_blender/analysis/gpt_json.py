@@ -11,7 +11,7 @@ analyse_info = {
 
 
 
-def analyse(response, timestamp):
+def analyse(response, timestamp, **kwargs):
     analysis = []
 
     if 'choices' in response:

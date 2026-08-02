@@ -129,8 +129,10 @@ def execute_llm(run_args, config, cache_dir, cache_timeout=None, progress_callba
     print('Running module:', run_args['module_name'], 'with args:', module_args)
     print(f'Run Hash: {run_args["run_hash"]}')
 
+    stats = ExecutionStats(max_cost=max_cost)
+
     if progress_callback:
-        progress_callback(0, 0, description="Loading LLM module...")
+        progress_callback(0, 0, description="Loading LLM module...", stats=stats)
 
     time.sleep(0.75)  # This allows the animation to be shown in the GUI for executions that are too fast (e.g. full cache hits)
 
@@ -147,13 +149,12 @@ def execute_llm(run_args, config, cache_dir, cache_timeout=None, progress_callba
     def build_description(completed, total):
         if completed >= total:
             return 'Finishing up...'
-        desc = (f"Execution Cost: ${total_cost:.2f}/{max_cost:.2f}"
-                if max_cost else f"Execution Cost: ${total_cost:.2f}")
+        desc = "Running..."
         if max_cost:
             if total_cost >= max_cost:
-                desc += "❌ (over budget)"
+                desc += " ❌ (over budget)"
             elif total_cost > max_cost * 0.90:
-                desc += "⚠️"
+                desc += " ⚠️"
         return desc
 
     def report_progress(completed, total):
@@ -167,7 +168,8 @@ def execute_llm(run_args, config, cache_dir, cache_timeout=None, progress_callba
         if not progress_callback:
             return True
         keep_running = progress_callback(completed, total,
-                                         description=build_description(completed, total))
+                                         description=build_description(completed, total),
+                                         stats=stats)
         return keep_running
 
     # ── Shared state ──
@@ -175,7 +177,6 @@ def execute_llm(run_args, config, cache_dir, cache_timeout=None, progress_callba
     # latest timestamp across all processed combinations
     max_timestamp = ''
     module_initialized = False
-    stats = ExecutionStats()
 
     init_lock = threading.Lock()   # guards lazy exec_init
     state_lock = threading.Lock()  # guards max_timestamp / total_cost / stats
@@ -213,7 +214,19 @@ def execute_llm(run_args, config, cache_dir, cache_timeout=None, progress_callba
                 stats.executed += 1
             if output:
                 max_timestamp = max(max_timestamp, output['timestamp'])
-                total_cost += output['cost'] if output.get('cost', None) is not None else 0
+                usage = output.get('usage', {})
+                total_cost += usage.get('cost', 0)
+                stats.tokens_in += usage.get('tokens in', 0)
+                stats.tokens_out += usage.get('tokens out', 0)
+                if 'bytes in' in usage:
+                    stats.bytes_in += usage['bytes in']
+                else:
+                    stats.bytes_in += len(output['prompt'].encode('utf-8'))
+                if 'bytes out' in usage:
+                    stats.bytes_out += usage['bytes out']
+                else:
+                    stats.bytes_out += len(json.dumps(output['response'], ensure_ascii=False).encode('utf-8'))
+                stats.cost += usage.get('cost', 0)
 
     def run_parallel():
         total = config.get_num_combinations()
@@ -295,7 +308,7 @@ def execute_llm(run_args, config, cache_dir, cache_timeout=None, progress_callba
                 record_output(output, cached)
 
         if progress_callback:
-            r = progress_callback(0, 0, description="Processing delayed executions...")
+            r = progress_callback(0, 0, description="Processing delayed executions...", stats=stats)
             if not r:
                 return max_timestamp, stats
 
@@ -307,7 +320,7 @@ def execute_llm(run_args, config, cache_dir, cache_timeout=None, progress_callba
             raise RuntimeError(f"There {('is', 'are')[pending>1]} {pending} pending results in asynchronous execution. Please, run again later to get the final results.")
 
         if progress_callback:
-            progress_callback(0, 0, description="Finishing up...")
+            progress_callback(0, 0, description="Finishing up...", stats=stats)
     finally:
         if module_initialized:
             llm_module.exec_close()
@@ -424,7 +437,7 @@ def _execute_inner(run, cache_dir, argument_combination):
     t1 = time.time()
 
     output['response'] = response['response']
-    output['cost'] = response.get('cost', 0)
+    output['usage'] = response.get('usage', {})
     output['elapsed_time'] = t1 - t0
 
     _atomic_write_json(result_file, output)
