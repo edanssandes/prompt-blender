@@ -21,6 +21,7 @@ module = OpenAICompatibleModule(
     ],
     default_model='sabia-4',
     environment_var='MARITACA_API_KEY',
+    cost_currency='BRL',
     costs={
         # Prices are BRL per 1M tokens (default mode).
         'sabia-4': {'input': 5.00, 'output': 20.00},

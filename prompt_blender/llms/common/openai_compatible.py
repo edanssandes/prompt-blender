@@ -13,6 +13,7 @@ class OpenAICompatibleModule:
                  models=None,
                  default_model=None,
                  environment_var=None,
+                 cost_currency='USD',
                  costs=None,
                  id=None,
                  name=None,
@@ -24,6 +25,7 @@ class OpenAICompatibleModule:
         self.models = models
         self.default_model = default_model
         self.environment_var = environment_var
+        self.cost_currency = cost_currency
         self.costs = costs
 
         self._module_info = None

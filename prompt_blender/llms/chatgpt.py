@@ -37,6 +37,7 @@ module = OpenAICompatibleModule(
     ],
     default_model='gpt-4.1-mini',
     environment_var='OPENAI_API_KEY',
+    cost_currency='USD',
     costs={
         # Prices are USD per 1M tokens.
         'gpt-5.6-sol': {'input': 5.00, 'output': 30.00},
