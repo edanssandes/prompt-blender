@@ -530,7 +530,11 @@ class Model:
             self.add_table_from_file(file_path, variable='value', maximum_rows=maximum_rows)
 
     def add_table_from_file(self, file_path, encoding='utf-8', variable=None, separator=',', maximum_rows=1000):
-        _variable, extension = os.path.basename(file_path).split('.')
+        basename = os.path.basename(file_path)
+        if '.' not in basename:
+            raise ValueError(
+                f"File '{basename}' does not have an extension. Please, provide a valid file with an extension.")
+        _variable, extension = basename.rsplit('.', 1)
         extension = extension.lower()
         if variable is None:
             variable = _variable
@@ -541,7 +545,14 @@ class Model:
             param = df.to_dict(orient='records')
         elif extension in ('csv',):
             # read csv - all strings
-            df = pd.read_csv(file_path, encoding=encoding, sep=separator, dtype=str)
+            try:
+                df = pd.read_csv(file_path, encoding=encoding, sep=separator, dtype=str)
+            except Exception as e:
+                raise ValueError(
+                    f"Error reading CSV file '{basename}'.\n"
+                    f"The file may be an invalid CSV file, or it may have an incorrect separator ('{separator}') or encoding ('{encoding}'). "
+                    f"Please, check the file and try again.\n\n"
+                    f"Error details: {e}")
             param = df.to_dict(orient='records')
         elif extension in ('txt',):
             with open(file_path, 'r', encoding=encoding) as file:
@@ -567,6 +578,9 @@ class Model:
             else:
                 raise ValueError(
                     "The module must contain a 'generate'function")
+        else:
+            raise ValueError(
+                f"File extension '{extension}' is not supported. Please, provide a valid file with an extension.")
 
         if len(param) > maximum_rows:
             raise ValueError(
