@@ -3,7 +3,7 @@ class ExecutionStats:
 
     def __init__(self, executed=0, cached=0, pending=0,
                  tokens_in=0, tokens_out=0, bytes_in=0, bytes_out=0,
-                 cost=0.0, max_cost=0.0):
+                 cost=0.0, max_cost=0.0, cost_currency="USD"):
         self.executed = executed
         self.cached = cached
         self.pending = pending
@@ -13,6 +13,7 @@ class ExecutionStats:
         self.bytes_out = bytes_out
         self.cost = cost
         self.max_cost = max_cost
+        self.cost_currency = cost_currency
 
     def __add__(self, other):
         if not isinstance(other, ExecutionStats):
@@ -27,6 +28,7 @@ class ExecutionStats:
             bytes_out=self.bytes_out + other.bytes_out,
             cost=self.cost + other.cost,
             max_cost=max(self.max_cost, other.max_cost),
+            cost_currency=self.cost_currency,
         )
 
     def __iadd__(self, other):
@@ -42,6 +44,7 @@ class ExecutionStats:
         self.bytes_out = result.bytes_out
         self.cost = result.cost
         self.max_cost = result.max_cost
+        self.cost_currency = result.cost_currency
         return self
 
     def __str__(self):
@@ -61,4 +64,5 @@ class ExecutionStats:
                 f"cached={self.cached}, pending={self.pending}, "
                 f"tokens_in={self.tokens_in}, tokens_out={self.tokens_out}, "
                 f"bytes_in={self.bytes_in}, bytes_out={self.bytes_out}, "
-            f"cost={self.cost}, max_cost={self.max_cost})")
+            f"cost={self.cost}, max_cost={self.max_cost}, "
+            f"cost_currency={self.cost_currency!r})")

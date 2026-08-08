@@ -2,7 +2,7 @@ import wx
 import wx.lib.agw.pygauge
 import threading
 import time
-
+from babel.numbers import get_currency_symbol
 
 def _format_tokens(value):
     """Format a token count as millions with two decimals, or '-' when zero."""
@@ -157,8 +157,9 @@ class ProgressDialog(wx.Dialog):
 
         # Total cost
         cost_row = wx.BoxSizer(wx.HORIZONTAL)
-        cost_label = wx.StaticText(box, label="Total Cost (US$)")
-        cost_label.SetForegroundColour(label_colour)
+        self.cost_label = wx.StaticText(box, label="")
+        self._update_cost_label("USD")
+        self.cost_label.SetForegroundColour(label_colour)
         self.cost_current_value = wx.StaticText(box, label="-")
         cost_font = self.cost_current_value.GetFont()
         cost_font.SetWeight(wx.FONTWEIGHT_BOLD)
@@ -170,7 +171,7 @@ class ProgressDialog(wx.Dialog):
         self.cost_max_value = wx.StaticText(box, label="-")
         self.cost_max_value.SetFont(cost_font)
         self.cost_max_value.SetForegroundColour(wx.Colour(120, 140, 140))
-        cost_row.Add(cost_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, border=10)
+        cost_row.Add(self.cost_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, border=10)
         cost_row.Add(self.cost_current_value, 0, wx.ALIGN_CENTER_VERTICAL)
         cost_row.Add(self.cost_separator_value, 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT | wx.RIGHT, border=4)
         cost_row.Add(self.cost_max_value, 0, wx.ALIGN_CENTER_VERTICAL)
@@ -213,7 +214,12 @@ class ProgressDialog(wx.Dialog):
         )
         self.cost_current_value.SetLabel(cost_current)
         self.cost_max_value.SetLabel(cost_max)
+        self._update_cost_label(getattr(stats, 'cost_currency', 'USD'))
         self.panel.Layout()
+
+    def _update_cost_label(self, currency="USD"):
+        currency_str = get_currency_symbol(currency)
+        self.cost_label.SetLabel(f"Total Cost ({currency_str})")
 
     def _update_button(self, current_value=-1, max_value=0):
         if current_value >= max_value:
@@ -255,6 +261,7 @@ if __name__ == '__main__':
         bytes_out = 0
         cost = 0.0
         max_cost = 10.0
+        cost_currency = "BRL"
 
     def dummy_task(dialog):
         """Simula uma tarefa com progresso de 1 a 100."""
