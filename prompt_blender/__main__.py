@@ -89,6 +89,10 @@ def main():
 
     # Non-GUI execution
 
+    # Verify if number of combinations is zero
+    if model.get_num_combinations() == 0:
+        exit('Error: No combinations to run. Please check your configuration file.')
+
     # Set output zip file
     if args.output:
         output_zip = args.output
